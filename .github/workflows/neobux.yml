@@ -19,10 +19,10 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '14'
+          node-version: '18'
 
       - name: Install Playwright
-        run: playwright install firefox
+        run: npx playwright install firefox
 
       - name: Run automation script
         run: node neobux-survey.js  # Replace 'script.js' with your actual script filename
