@@ -22,7 +22,7 @@ jobs:
           node-version: '14'
 
       - name: Install Playwright
-        run: npx playwright install firefox
+        run: playwright install firefox
 
       - name: Run automation script
         run: node neobux-survey.js  # Replace 'script.js' with your actual script filename
