@@ -1,0 +1,11 @@
+{
+  "name": "neobux-bot",
+  "version": "1.0.0",
+  "description": "Automated bot for NeoBux tasks",
+  "dependencies": {
+    "playwright": "^1.40.0"
+  },
+  "scripts": {
+    "check-login": "node check-login.js"
+  }
+}

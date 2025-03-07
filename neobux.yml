@@ -1,0 +1,33 @@
+name: Run NeoBux Script
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */9 * * *"  # Runs every 5 hours
+
+jobs:
+  automate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '14'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install
+
+      - name: Run automation script
+        run: npm run check-login  # Make sure your script is named appropriately
+        env:
+          DISPLAY: ':99.0'  # Enable Xvfb to run headless
