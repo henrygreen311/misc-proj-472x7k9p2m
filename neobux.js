@@ -81,7 +81,7 @@ const fs = require('fs');
 
                 let shouldRestart = false; // Flag to control game sequence restart
                 let sequenceCount = 0; // Counter for completed sequences
-                const maxSequences = 13; // Limit to 12 runs
+                const maxSequences = 5; // Limit to 12 runs
 
                 // Function to play the game sequence
                 const playGameSequence = async () => {
