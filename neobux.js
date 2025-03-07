@@ -2,7 +2,7 @@ const { firefox } = require('playwright');
 const fs = require('fs');
 
 (async () => {
-    const sessionFile = 'neobux-session_01.json';
+    const sessionFile = 'neobux-session_02.json';
 
     if (!fs.existsSync(sessionFile)) {
         console.error('Session file not found!');
@@ -27,7 +27,7 @@ const fs = require('fs');
         return cookie;
     });
 
-    const browser = await firefox.launch({ headless: true });
+    const browser = await firefox.launch({ headless: false });
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -81,11 +81,22 @@ const fs = require('fs');
 
                 let shouldRestart = false; // Flag to control game sequence restart
                 let sequenceCount = 0; // Counter for completed sequences
-                const maxSequences = 5; // Limit to 12 runs
+                const maxSequences = 12; // Limit to 12 runs
+                let timeoutCount = 0; // Counter for timeouts
+                const maxTimeouts = 5; // Exit after 5 timeouts
+
+                // Function to check if we should exit due to timeouts
+                const checkTimeoutLimit = () => {
+                    if (timeoutCount >= maxTimeouts) {
+                        console.log(`Maximum timeout limit (${maxTimeouts}) reached. Exiting script...`);
+                        return true;
+                    }
+                    return false;
+                };
 
                 // Function to play the game sequence
                 const playGameSequence = async () => {
-                    while (sequenceCount < maxSequences) {
+                    while (sequenceCount < maxSequences && !checkTimeoutLimit()) {
                         if (shouldRestart) {
                             console.log('Restart flag detected, stopping current sequence...');
                             shouldRestart = false;
@@ -104,15 +115,15 @@ const fs = require('fs');
                             console.log('Waiting for game to fully load (ark-play-widget-container)...');
                             await gamePage.waitForSelector('ark-div.ark-play-widget-container', { timeout: 120000, state: 'visible' });
 
-                            console.log('Game loaded successfully. Waiting an additional 3 minute...');
-                            await gamePage.waitForTimeout(180000);
+                            console.log('Game loaded successfully. Waiting an additional 1 minute...');
+                            await gamePage.waitForTimeout(60000);
 
                             let attempts = 0;
                             const maxAttempts = 3;
                             let canvasFound = false;
                             let frame;
 
-                            while (attempts < maxAttempts && !canvasFound && !shouldRestart) {
+                            while (attempts < maxAttempts && !canvasFound && !shouldRestart && !checkTimeoutLimit()) {
                                 try {
                                     console.log('Locating game iframe...');
                                     const mainIframeElement = await gamePage.waitForSelector('iframe[ark-test-id="ark-game-iframe"]', { timeout: 30000, state: 'visible' });
@@ -128,9 +139,9 @@ const fs = require('fs');
                                             if (canvas) {
                                                 canvasFound = true;
                                                 console.log('Game canvas found! Clicking different positions...');
-                                                for (let i = 1; i <= 15 && !shouldRestart; i++) {
-                                                    for (let y = 400; y <= 410 && !shouldRestart; y += 10) {
-                                                        console.log(`Clicking sequence #${i}/15 at (320, ${y})...`);
+                                                for (let i = 1; i <= 7 && !shouldRestart && !checkTimeoutLimit(); i++) {
+                                                    for (let y = 400; y <= 410 && !shouldRestart && !checkTimeoutLimit(); y += 10) {
+                                                        console.log(`Clicking sequence #${i}/7 at (320, ${y})...`);
                                                         await frame.click('canvas', { position: { x: 320, y: y } });
                                                         await gamePage.waitForTimeout(10000);
                                                     }
@@ -143,6 +154,11 @@ const fs = require('fs');
                                 } catch (error) {
                                     attempts++;
                                     console.log(`Attempt ${attempts}/${maxAttempts} failed: ${error.message}`);
+                                    if (error.message.includes('Timeout')) {
+                                        timeoutCount++;
+                                        console.log(`Timeout occurred (${timeoutCount}/${maxTimeouts}), retrying in 5 seconds...`);
+                                        if (checkTimeoutLimit()) return;
+                                    }
                                     if (attempts < maxAttempts) {
                                         console.log('Waiting 5 seconds before retrying...');
                                         await gamePage.waitForTimeout(5000);
@@ -159,10 +175,15 @@ const fs = require('fs');
                             }
                         } catch (error) {
                             console.log('Error in game sequence:', error.message);
-                            await gamePage.waitForTimeout(5000);
+                            if (error.message.includes('Timeout')) {
+                                timeoutCount++;
+                                console.log(`Timeout occurred (${timeoutCount}/${maxTimeouts}), retrying in 5 seconds...`);
+                                if (checkTimeoutLimit()) return;
+                                await gamePage.waitForTimeout(5000);
+                            }
                         }
                     }
-                    console.log(`Completed all ${maxSequences} sequences!`);
+                    console.log(`Completed all ${maxSequences} sequences or reached timeout limit!`);
                 };
 
                 // Main game loop
@@ -173,7 +194,7 @@ const fs = require('fs');
 
                 // Inactivity popup handler
                 const handleInactivityPopup = async () => {
-                    while (sequenceCount < maxSequences) {
+                    while (sequenceCount < maxSequences && !checkTimeoutLimit()) {
                         try {
                             const popup = await gamePage.$('#ARK_popup_gamePaused');
                             if (popup) {
@@ -183,6 +204,11 @@ const fs = require('fs');
                             }
                         } catch (error) {
                             console.log('Error checking inactivity popup:', error.message);
+                            if (error.message.includes('Timeout')) {
+                                timeoutCount++;
+                                console.log(`Timeout occurred (${timeoutCount}/${maxTimeouts}), retrying in 5 seconds...`);
+                                if (checkTimeoutLimit()) return;
+                            }
                         }
                         await gamePage.waitForTimeout(5000);
                     }
@@ -190,7 +216,7 @@ const fs = require('fs');
 
                 // End game handler
                 const handleEndGame = async () => {
-                    while (sequenceCount < maxSequences) {
+                    while (sequenceCount < maxSequences && !checkTimeoutLimit()) {
                         try {
                             const endGameElement = await gamePage.$('ark-div.ark-game-end');
                             if (endGameElement) {
@@ -217,7 +243,9 @@ const fs = require('fs');
                         } catch (error) {
                             console.log('Error checking end game:', error.message);
                             if (error.message.includes('Timeout')) {
-                                console.log('Timeout occurred, retrying in 5 seconds...');
+                                timeoutCount++;
+                                console.log(`Timeout occurred (${timeoutCount}/${maxTimeouts}), retrying in 5 seconds...`);
+                                if (checkTimeoutLimit()) return;
                                 await gamePage.waitForTimeout(5000);
                             }
                         }
@@ -230,9 +258,14 @@ const fs = require('fs');
                     playGameLoop(),
                     handleInactivityPopup(),
                     handleEndGame()
-                ]).catch(error => console.log('Main promise error:', error))
-                .finally(async () => {
-                    console.log('Script completed or errored, closing browser...');
+                ]).catch(error => {
+                    console.log('Main promise error:', error.message);
+                    if (error.message.includes('Timeout')) {
+                        timeoutCount++;
+                        console.log(`Timeout occurred (${timeoutCount}/${maxTimeouts}) in main loop`);
+                    }
+                }).finally(async () => {
+                    console.log('Script completed, reached timeout limit, or errored. Closing browser...');
                     await browser.close();
                 });
             }
