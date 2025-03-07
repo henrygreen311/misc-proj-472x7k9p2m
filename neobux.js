@@ -2,7 +2,7 @@ const { firefox } = require('playwright');
 const fs = require('fs');
 
 (async () => {
-    const sessionFile = 'neobux-session_01.json';
+    const sessionFile = 'neobux-session.json';
 
     if (!fs.existsSync(sessionFile)) {
         console.error('Session file not found!');
@@ -128,9 +128,9 @@ const fs = require('fs');
                                             if (canvas) {
                                                 canvasFound = true;
                                                 console.log('Game canvas found! Clicking different positions...');
-                                                for (let i = 1; i <= 7 && !shouldRestart; i++) {
+                                                for (let i = 1; i <= 10 && !shouldRestart; i++) {
                                                     for (let y = 400; y <= 410 && !shouldRestart; y += 10) {
-                                                        console.log(`Clicking sequence #${i}/7 at (320, ${y})...`);
+                                                        console.log(`Clicking sequence #${i}/10 at (320, ${y})...`);
                                                         await frame.click('canvas', { position: { x: 320, y: y } });
                                                         await gamePage.waitForTimeout(10000);
                                                     }
