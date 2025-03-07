@@ -1,12 +1,9 @@
 name: Run NeoBux-game_01 Script
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  workflow_dispatch:  # Manually trigger from GitHub Actions
   schedule:
-    - cron: "0 0 * * *"  # Runs every hour (24 times a day)
+    - cron: "0 0 * * *"  # Runs once every 24 hours at midnight UTC
 
 jobs:
   automate:
