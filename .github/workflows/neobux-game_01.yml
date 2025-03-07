@@ -6,7 +6,7 @@ on:
       - main
   workflow_dispatch:
   schedule:
-    - cron: "0 */9 * * *"  # Runs every 9 hours
+    - cron: "0 * * * *"  # Runs every hour (24 times a day)
 
 jobs:
   automate:
@@ -24,7 +24,11 @@ jobs:
       - name: Install Playwright
         run: npm install playwright && npx playwright install firefox
 
-      - name: Run automation script
-        run: node neobux.js  # Replace 'script.js' with your actual script filename
+      - name: Run automation script 100 times
+        run: |
+          for i in {1..100}; do
+            echo "Running iteration $i"
+            node neobux.js  # Replace with your actual script filename
+          done
         env:
           DISPLAY: ':99.0'  # Enable Xvfb to run headless
