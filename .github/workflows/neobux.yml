@@ -1,12 +1,9 @@
 name: Run NeoBux Script
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+ workflow_dispatch:
   schedule:
-    - cron: "0 */9 * * *"  # Runs every 9 hours
+    - cron: "0 */5 * * *"  # Runs every 9 hours
 
 jobs:
   automate:
