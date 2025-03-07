@@ -27,7 +27,7 @@ const fs = require('fs');
         return cookie;
     });
 
-    const browser = await firefox.launch({ headless: false });
+    const browser = await firefox.launch({ headless: true });
     const context = await browser.newContext();
     const page = await context.newPage();
 
