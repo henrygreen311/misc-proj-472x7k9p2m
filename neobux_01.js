@@ -2,7 +2,7 @@ const { firefox } = require('playwright');
 const fs = require('fs');
 
 (async () => {
-    const sessionFile = 'neobux-session_01.json';
+    const sessionFile = 'neobux-session.json';
 
     if (!fs.existsSync(sessionFile)) {
         console.error('Session file not found!');
@@ -81,7 +81,7 @@ const fs = require('fs');
 
                 let shouldRestart = false; // Flag to control game sequence restart
                 let sequenceCount = 0; // Counter for completed sequences
-                const maxSequences = 3; // Limit to 12 runs
+                const maxSequences = 3; // Limit to 3 runs (changed from 12 as in your script)
 
                 // Function to play the game sequence
                 const playGameSequence = async () => {
@@ -177,12 +177,10 @@ const fs = require('fs');
                         try {
                             const popup = await gamePage.$('#ARK_popup_gamePaused');
                             if (popup) {
-                                console.log('Inactivity popup detected! Clicking outside to close...');
                                 await gamePage.mouse.click(50, 50);
-                                console.log('Popup closed.');
                             }
                         } catch (error) {
-                            console.log('Error checking inactivity popup:', error.message);
+                            // Silently handle errors without logging
                         }
                         await gamePage.waitForTimeout(5000);
                     }
@@ -215,9 +213,8 @@ const fs = require('fs');
                                 }
                             }
                         } catch (error) {
-                            console.log('Error checking end game:', error.message);
+                            // Silently handle timeouts without logging
                             if (error.message.includes('Timeout')) {
-                                console.log('Timeout occurred, retrying in 5 seconds...');
                                 await gamePage.waitForTimeout(5000);
                             }
                         }
