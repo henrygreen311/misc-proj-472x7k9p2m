@@ -59,7 +59,10 @@ const fs = require('fs');
             await page.screenshot({ path: 'content.png', fullPage: true });
 
             console.log('Finding ad containers...');
-            const adContainers = await page.$$('div[style="height:97px;width:100%;cursor:pointer;"]');
+            // Look for both types of ad containers and combine them
+            const adContainers97 = await page.$$('div[style="height:97px;width:100%;cursor:pointer;"]');
+            const adContainers42 = await page.$$('div[style="height:42px;width:100%;cursor:pointer;"]');
+            const adContainers = [...adContainers97, ...adContainers42]; // Combine both arrays
 
             if (adContainers.length === 0) {
                 console.log('No ads found. Exiting.');
@@ -67,7 +70,7 @@ const fs = require('fs');
                 process.exit(0);
             }
 
-            console.log(`Found ${adContainers.length} ads. Clicking one by one...`);
+            console.log(`Found ${adContainers.length} ads (97px: ${adContainers97.length}, 42px: ${adContainers42.length}). Clicking one by one...`);
 
             for (let i = 0; i < adContainers.length; i++) {
                 console.log(`Clicking ad ${i + 1}/${adContainers.length}...`);
