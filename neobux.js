@@ -81,7 +81,7 @@ const fs = require('fs');
 
                 let shouldRestart = false; // Flag to control game sequence restart
                 let sequenceCount = 0; // Counter for completed sequences
-                const maxSequences = 3; // Limit to 3 runs (changed from 12 as in your script)
+                const maxSequences = 3; // Limit to 3 runs (as in your script)
 
                 // Function to play the game sequence
                 const playGameSequence = async () => {
@@ -192,8 +192,7 @@ const fs = require('fs');
                         try {
                             const endGameElement = await gamePage.$('ark-div.ark-game-end');
                             if (endGameElement) {
-                                console.log('End game detected! Waiting 3s before clicking "Play Again"...');
-                                await gamePage.waitForTimeout(3000);
+                                await gamePage.waitForTimeout(3000); // Wait silently
                                 const playAgainButton = await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-again-button"]', { timeout: 30000, state: 'visible' });
                                 if (playAgainButton) {
                                     console.log('"Play Again" button found! Clicking...');
