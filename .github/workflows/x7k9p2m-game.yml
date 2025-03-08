@@ -1,14 +1,17 @@
 name: Run NeoBux-game Script
 
 on:
-  workflow_dispatch:  # Manually trigger from GitHub Actions
+  workflow_dispatch:  # Manually trigger with optional iteration start
+    inputs:
+      start_iteration:
+        description: 'Starting iteration number'
+        default: '1'
   schedule:
-    - cron: "0 0 * * *"  # Runs once every 24 hours
+    - cron: "0 0 * * *"  # Runs once daily at 00:00 UTC
 
 jobs:
   automate:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,11 +24,36 @@ jobs:
       - name: Install Playwright
         run: npm install playwright && npx playwright install firefox
 
-      - name: Run automation script 100 times
+      - name: Run automation script with timeout
         run: |
-          for i in {1..100}; do
+          # Start iteration from input (default 1 for scheduled runs)
+          START_ITERATION=${{ github.event.inputs.start_iteration || 1 }}
+          END_ITERATION=100
+          TIMEOUT_SECONDS=$((5 * 3600 + 50 * 60))  # 5 hours 50 minutes = 21,000 seconds
+          START_TIME=$(date +%s)
+
+          for ((i=$START_ITERATION; i<=$END_ITERATION; i++)); do
+            CURRENT_TIME=$(date +%s)
+            ELAPSED_SECONDS=$((CURRENT_TIME - START_TIME))
+
+            # Exit if approaching 5 hours 50 minutes
+            if [ $ELAPSED_SECONDS -ge $TIMEOUT_SECONDS ]; then
+              echo "Approaching 5h50m limit after iteration $((i-1)). Triggering restart..."
+              # Trigger next run via workflow_dispatch
+              curl -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                https://api.github.com/repos/${{ github.repository }}/actions/workflows/$(basename ${{ github.workflow }}) \
+                -d "{\"ref\":\"${{ github.ref }}\",\"inputs\":{\"start_iteration\":\"$i\"}}"
+              exit 0
+            fi
+
             echo "Running iteration $i"
-            node neox7k9p2m.js  # Replace with your actual script filename
+            node neox7k9p2m.js  # Assuming renamed to neobux.js per your latest
           done
+
+          echo "Completed all iterations up to $END_ITERATION"
         env:
-          DISPLAY: ':99.0'  # Enable Xvfb to run headless
+          DISPLAY: ':99.0'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Built-in token for API calls
