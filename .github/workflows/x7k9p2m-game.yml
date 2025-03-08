@@ -1,4 +1,4 @@
-name: Run NeoBux Script
+name: Run NeoBux-game Script
 
 on:
   workflow_dispatch:
