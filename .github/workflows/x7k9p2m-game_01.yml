@@ -1,4 +1,4 @@
-name: Run NeoBux-game_01 Script
+name: Run neoBux-game_01 Script
 
 on:
   workflow_dispatch:
@@ -10,29 +10,23 @@ on:
     - cron: "0 0 * * *"
 
 concurrency:
-  group: neobux-script-run
+  group: neobux_01-js-run  # Unique to neobux.js
   cancel-in-progress: true
 
 jobs:
   automate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
-
-      - name: Install Playwright
-        run: npm install playwright && npx playwright install firefox
-
+      - run: npm install playwright && npx playwright install firefox
       - name: Run automation script with timeout
         run: |
           START_ITERATION=${{ github.event.inputs.start_iteration || 1 }}
           END_ITERATION=100
-          TIMEOUT_SECONDS=$((5 * 3600 + 50 * 60))  # 5 hours 50 minutes
+          TIMEOUT_SECONDS=$((5 * 3600 + 50 * 60))
           START_TIME=$(date +%s)
 
           for ((i=$START_ITERATION; i<=$END_ITERATION; i++)); do
@@ -51,7 +45,7 @@ jobs:
             fi
 
             echo "Running iteration $i"
-            node neox7k9p2m_01.js  # Updated filename here
+            node neox7k9p2m_01.js
           done
 
           echo "Completed all iterations up to $END_ITERATION"
