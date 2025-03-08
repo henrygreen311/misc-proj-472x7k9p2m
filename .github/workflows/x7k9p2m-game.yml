@@ -1,13 +1,17 @@
 name: Run NeoBux-game Script
 
 on:
-  workflow_dispatch:  # Manually trigger with optional iteration start
+  workflow_dispatch:
     inputs:
       start_iteration:
         description: 'Starting iteration number'
         default: '1'
   schedule:
-    - cron: "0 0 * * *"  # Runs once daily at 00:00 UTC
+    - cron: "0 0 * * *"
+
+concurrency:
+  group: neobux-script-run
+  cancel-in-progress: true
 
 jobs:
   automate:
@@ -26,20 +30,17 @@ jobs:
 
       - name: Run automation script with timeout
         run: |
-          # Start iteration from input (default 1 for scheduled runs)
           START_ITERATION=${{ github.event.inputs.start_iteration || 1 }}
           END_ITERATION=100
-          TIMEOUT_SECONDS=$((5 * 3600 + 50 * 60))  # 5 hours 50 minutes = 21,000 seconds
+          TIMEOUT_SECONDS=$((5 * 3600 + 50 * 60))  # 5 hours 50 minutes
           START_TIME=$(date +%s)
 
           for ((i=$START_ITERATION; i<=$END_ITERATION; i++)); do
             CURRENT_TIME=$(date +%s)
             ELAPSED_SECONDS=$((CURRENT_TIME - START_TIME))
 
-            # Exit if approaching 5 hours 50 minutes
             if [ $ELAPSED_SECONDS -ge $TIMEOUT_SECONDS ]; then
               echo "Approaching 5h50m limit after iteration $((i-1)). Triggering restart..."
-              # Trigger next run via workflow_dispatch
               curl -X POST \
                 -H "Accept: application/vnd.github+json" \
                 -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -50,10 +51,10 @@ jobs:
             fi
 
             echo "Running iteration $i"
-            node neox7k9p2m.js  # Assuming renamed to neobux.js per your latest
+            node neox7k9p2m.js  # Updated filename here
           done
 
           echo "Completed all iterations up to $END_ITERATION"
         env:
           DISPLAY: ':99.0'
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Built-in token for API calls
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
