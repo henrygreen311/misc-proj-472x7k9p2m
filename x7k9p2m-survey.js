@@ -2,7 +2,7 @@ const { firefox } = require('playwright');
 const fs = require('fs');
 
 (async () => {
-    const sessionFile = 'neobux-session.json';
+    const sessionFile = 'x7k9p2m.json';
 
     if (!fs.existsSync(sessionFile)) {
         console.error('Session file not found!');
