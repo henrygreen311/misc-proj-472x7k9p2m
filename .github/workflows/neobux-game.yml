@@ -3,7 +3,7 @@ name: Run NeoBux-game Script
 on:
   workflow_dispatch:  # Manually trigger from GitHub Actions
   schedule:
-    - cron: "0 0 * * *"  # Runs once every 24 hours at midnight UTC
+    - cron: "0 */7 * * *"  # Runs once every 7 hours
 
 jobs:
   automate:
