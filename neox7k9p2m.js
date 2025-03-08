@@ -6,7 +6,7 @@ const runScript = async () => {
     let adButtonTimeoutCount = 0;
     const maxAdButtonTimeouts = 3;
 
-    const sessionFile = 'neobux-session.json';
+    const sessionFile = 'x7k9p2m.json';
 
     if (!fs.existsSync(sessionFile)) {
         console.error('Session file not found!');
