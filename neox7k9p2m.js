@@ -122,7 +122,7 @@ const runScript = async () => {
 
                 let shouldRestart = false;
                 let sequenceCount = 0;
-                const maxSequences = 3;
+                const maxSequences = 1;
 
                 // Function to play the game sequence
                 const playGameSequence = async () => {
