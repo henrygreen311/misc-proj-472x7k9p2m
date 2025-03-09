@@ -1,8 +1,11 @@
 const { firefox } = require('playwright');
 const fs = require('fs');
 
-// Main script function
+// Main script function to allow restarting
 const runScript = async () => {
+    let adButtonTimeoutCount = 0;
+    const maxAdButtonTimeouts = 3;
+
     const sessionFile = 'x7k9p2m.json';
 
     if (!fs.existsSync(sessionFile)) {
@@ -75,19 +78,22 @@ const runScript = async () => {
                 console.log('"Knife Smash" found! Clicking...');
                 await gamePage.click('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")');
 
-                console.log('Waiting for page to load after clicking "Knife Smash"...');
-                await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+                // Add a small delay to ensure the page updates after clicking "Knife Smash"
+                await gamePage.waitForTimeout(2000);
 
+                // Retry logic for "PLAY NOW" button
+                let playNowButtonFound = false;
                 let playNowAttempts = 0;
                 const maxPlayNowAttempts = 3;
 
-                while (playNowAttempts < maxPlayNowAttempts) {
+                while (!playNowButtonFound && playNowAttempts < maxPlayNowAttempts) {
                     try {
                         console.log('Waiting for "PLAY NOW" button...');
-                        await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-now"]', { timeout: 30000, state: 'visible' });
+                        // Increased timeout to 90 seconds
+                        await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-now"]', { timeout: 90000, state: 'visible' });
                         console.log('"PLAY NOW" button found! Clicking...');
                         await gamePage.click('ark-div[ark-test-id="ark-play-now"]');
-                        break;
+                        playNowButtonFound = true;
                     } catch (error) {
                         playNowAttempts++;
                         console.log(`Attempt ${playNowAttempts}/${maxPlayNowAttempts} failed to find "PLAY NOW" button: ${error.message}`);
@@ -98,151 +104,216 @@ const runScript = async () => {
                             await gamePage.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
                             await gamePage.waitForSelector('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")', { timeout: 30000, state: 'visible' });
                             await gamePage.click('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")');
-                            await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+                            await gamePage.waitForTimeout(2000);
                         } else {
-                            console.error('Max attempts reached for "PLAY NOW" button. Aborting...');
+                            console.error('Max attempts reached for "PLAY NOW" button. Aborting this session...');
                             await browser.close();
-                            process.exit(1);
+                            return false; // Signal failure to trigger restart
                         }
                     }
                 }
 
+                if (!playNowButtonFound) {
+                    console.error('Failed to proceed after retries. Restarting script...');
+                    await browser.close();
+                    return false;
+                }
+
+                let shouldRestart = false;
+                let sequenceCount = 0;
+                const maxSequences = 3;
+
                 // Function to play the game sequence
                 const playGameSequence = async () => {
-                    try {
-                        console.log('Starting game sequence...');
-                        console.log('Waiting for Ad button...');
-                        await gamePage.waitForTimeout(3000);
-                        await gamePage.waitForSelector('button.ark-ad-button[data-type="play-button"]', { timeout: 30000, state: 'visible' });
-                        console.log('Ad button found! Clicking...');
-                        await gamePage.click('button.ark-ad-button[data-type="play-button"]');
-                        await gamePage.waitForTimeout(5000);
+                    while (sequenceCount < maxSequences) {
+                        if (shouldRestart) {
+                            console.log('Restart flag detected, stopping current sequence...');
+                            shouldRestart = false;
+                            continue;
+                        }
 
-                        console.log('Waiting for game to fully load (ark-play-widget-container)...');
-                        await gamePage.waitForSelector('ark-div.ark-play-widget-container', { timeout: 120000, state: 'visible' });
+                        try {
+                            console.log(`Starting sequence ${sequenceCount + 1}/${maxSequences}...`);
+                            console.log('Waiting for Ad button...');
+                            await gamePage.waitForTimeout(3000);
+                            await gamePage.waitForSelector('button.ark-ad-button[data-type="play-button"]', { timeout: 30000, state: 'visible' });
+                            console.log('Ad button found! Clicking...');
+                            await gamePage.click('button.ark-ad-button[data-type="play-button"]');
+                            await gamePage.waitForTimeout(5000); // Wait for stability
 
-                        console.log('Game loaded successfully. Waiting an additional 3 minutes...');
-                        await gamePage.waitForTimeout(180000);
+                            console.log('Waiting for game to fully load (ark-play-widget-container)...');
+                            await gamePage.waitForSelector('ark-div.ark-play-widget-container', { timeout: 120000, state: 'visible' });
 
-                        console.log('Locating game iframe...');
-                        let attempts = 0;
-                        const maxAttempts = 3;
-                        let canvasFound = false;
-                        let frame;
+                            console.log('Game loaded successfully. Waiting an additional 3 minutes...');
+                            await gamePage.waitForTimeout(180000);
 
-                        while (attempts < maxAttempts && !canvasFound) {
-                            try {
-                                const mainIframeElement = await gamePage.waitForSelector('iframe[ark-test-id="ark-game-iframe"]', { timeout: 30000, state: 'visible' });
-                                const mainIframe = await mainIframeElement.contentFrame();
+                            let attempts = 0;
+                            const maxAttempts = 3;
+                            let canvasFound = false;
+                            let frame;
 
-                                if (mainIframe) {
-                                    console.log('Switched to game iframe! Searching for nested iframes...');
-                                    const nestedFrames = mainIframe.childFrames();
+                            while (attempts < maxAttempts && !canvasFound && !shouldRestart) {
+                                try {
+                                    console.log('Locating game iframe...');
+                                    const mainIframeElement = await gamePage.waitForSelector('iframe[ark-test-id="ark-game-iframe"]', { timeout: 30000, state: 'visible' });
+                                    const mainIframe = await mainIframeElement.contentFrame();
 
-                                    for (const f of nestedFrames) {
-                                        frame = f;
-                                        const canvas = await frame.waitForSelector('canvas[width="640"][height="480"]', { timeout: 30000, state: 'visible' });
-                                        if (canvas) {
-                                            canvasFound = true;
-                                            console.log('Game canvas found! Clicking different positions...');
-                                            for (let i = 1; i <= 10; i++) {
-                                                for (let y = 400; y <= 410; y += 10) {
-                                                    console.log(`Clicking sequence #${i}/10 at (320, ${y})...`);
-                                                    let clickAttempts = 0;
-                                                    const maxClickAttempts = 3;
-                                                    while (clickAttempts < maxClickAttempts) {
-                                                        try {
-                                                            await frame.click('canvas[width="640"][height="480"]', { position: { x: 320, y: y }, timeout: 30000 });
-                                                            break;
-                                                        } catch (error) {
-                                                            clickAttempts++;
-                                                            console.log(`Click attempt ${clickAttempts}/${maxClickAttempts} failed: ${error.message}`);
-                                                            if (clickAttempts < maxClickAttempts) {
-                                                                await gamePage.waitForTimeout(5000);
-                                                            } else {
-                                                                throw new Error('Max click attempts reached');
-                                                            }
-                                                        }
+                                    if (mainIframe) {
+                                        console.log('Switched to game iframe! Searching for nested iframes...');
+                                        const nestedFrames = mainIframe.childFrames();
+
+                                        for (const f of nestedFrames) {
+                                            frame = f;
+                                            const canvas = await frame.$('canvas[width="640"][height="480"]');
+                                            if (canvas) {
+                                                canvasFound = true;
+                                                console.log('Game canvas found! Clicking different positions...');
+                                                for (let i = 1; i <= 10 && !shouldRestart; i++) {
+                                                    for (let y = 400; y <= 410 && !shouldRestart; y += 10) {
+                                                        console.log(`Clicking sequence #${i}/10 at (320, ${y})...`);
+                                                        await frame.click('canvas', { position: { x: 320, y: y } });
+                                                        await gamePage.waitForTimeout(10000);
                                                     }
-                                                    await gamePage.waitForTimeout(10000); // 10s wait after each click
                                                 }
+                                                break;
                                             }
-                                            break;
                                         }
                                     }
-                                }
-                                if (!canvasFound) throw new Error('Canvas not found');
-                            } catch (error) {
-                                attempts++;
-                                console.log(`Attempt ${attempts}/${maxAttempts} failed: ${error.message}`);
-                                if (attempts < maxAttempts) {
-                                    console.log('Waiting 5 seconds before retrying...');
-                                    await gamePage.waitForTimeout(5000);
+                                    if (!canvasFound) throw new Error('Canvas not found');
+                                } catch (error) {
+                                    attempts++;
+                                    console.log(`Attempt ${attempts}/${maxAttempts} failed: ${error.message}`);
+                                    if (attempts < maxAttempts) {
+                                        console.log('Waiting 5 seconds before retrying...');
+                                        await gamePage.waitForTimeout(5000);
+                                    }
                                 }
                             }
+
+                            if (!canvasFound) {
+                                console.log('Failed to find stable canvas after max attempts, waiting before retry...');
+                                await gamePage.waitForTimeout(10000);
+                            } else {
+                                sequenceCount++;
+                                console.log(`Sequence ${sequenceCount}/${maxSequences} completed successfully`);
+                            }
+                        } catch (error) {
+                            console.log('Error in game sequence:', error.message);
+                            if (error.message.includes('Timeout 30000ms exceeded') && error.message.includes('button.ark-ad-button[data-type="play-button"]')) {
+                                adButtonTimeoutCount++;
+                                console.log(`Ad button timeout occurred (${adButtonTimeoutCount}/${maxAdButtonTimeouts})`);
+                                if (adButtonTimeoutCount >= maxAdButtonTimeouts) {
+                                    console.log('Max ad button timeouts reached. Restarting script from beginning...');
+                                    await browser.close();
+                                    return false; // Signal to restart
+                                }
+                            }
+                            await gamePage.waitForTimeout(5000);
                         }
-
-                        if (!canvasFound) {
-                            console.error('Failed to find stable canvas after max attempts.');
-                            throw new Error('Canvas not found');
-                        }
-
-                        console.log('Clicking sequence completed. Waiting for game end...');
-                        await gamePage.waitForSelector('ark-div.ark-game-end.background-blue', { timeout: 300000, state: 'visible' });
-                        console.log('Game end container visible! Waiting for "Play Again" button...');
-                        const playAgainButton = await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-again-button"]', { timeout: 30000 });
-                        console.log('"Play Again" button found! Clicking...');
-                        await playAgainButton.click({ timeout: 10000 });
-
-                        console.log('Game sequence completed successfully');
-                    } catch (error) {
-                        console.error('Error in game sequence:', error.message);
-                        throw error;
                     }
+                    console.log(`Completed all ${maxSequences} sequences!`);
+                    return true; // Signal successful completion
                 };
 
-                // Inactivity popup handler (silent)
+                // Main game loop
+                const playGameLoop = async () => {
+                    await playGameSequence();
+                    console.log('Game loop finished');
+                };
+
+                // Inactivity popup handler
                 const handleInactivityPopup = async () => {
-                    while (true) {
+                    while (sequenceCount < maxSequences) {
                         try {
                             const popup = await gamePage.$('#ARK_popup_gamePaused');
                             if (popup) {
-                                await gamePage.mouse.click(50, 50, { timeout: 10000 });
+                                await gamePage.mouse.click(50, 50);
                             }
                         } catch (error) {
-                            // Silently ignore errors
+                            // Silently handle errors
                         }
                         await gamePage.waitForTimeout(5000);
                     }
                 };
 
-                // Run the game sequence and inactivity handler concurrently
-                await Promise.all([
-                    playGameSequence(),
-                    handleInactivityPopup()
-                ]).then(async () => {
-                    console.log('All tasks completed. Closing browser...');
+                // End game handler
+                const handleEndGame = async () => {
+                    while (sequenceCount < maxSequences) {
+                        try {
+                            const endGameElement = await gamePage.$('ark-div.ark-game-end');
+                            if (endGameElement) {
+                                await gamePage.waitForTimeout(3000);
+                                const playAgainButton = await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-again-button"]', { timeout: 30000, state: 'visible' });
+                                if (playAgainButton) {
+                                    console.log('"Play Again" button found! Clicking...');
+                                    await playAgainButton.click({ timeout: 10000 });
+                                    console.log('"Play Again" clicked. Checking for ad button...');
+                                    shouldRestart = true;
+
+                                    await gamePage.waitForTimeout(3000);
+                                    const adButton = await gamePage.waitForSelector('button.ark-ad-button[data-type="play-button"]', { timeout: 10000, state: 'visible' })
+                                        .catch(() => null);
+                                    if (adButton) {
+                                        console.log('Ad button found after Play Again! Sequence will restart from ad click...');
+                                    } else {
+                                        console.log('No ad button found, sequence will continue normally...');
+                                        shouldRestart = false;
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (error.message.includes('Timeout')) {
+                                await gamePage.waitForTimeout(5000);
+                            }
+                        }
+                        await gamePage.waitForTimeout(5000);
+                    }
+                };
+
+                // Run the game loop and handlers
+                const success = await Promise.all([
+                    playGameLoop(),
+                    handleInactivityPopup(),
+                    handleEndGame()
+                ]).then(() => true)
+                .catch(error => {
+                    console.log('Main promise error:', error.message);
+                    return false;
+                })
+                .finally(async () => {
+                    console.log('Script completed or errored, closing browser...');
                     await browser.close();
-                    process.exit(0); // Exit successfully
-                }).catch(async error => {
-                    console.error('Main promise error:', error.message);
-                    await browser.close();
-                    process.exit(1); // Exit on error
                 });
+
+                return success;
             }
         }
     } catch (error) {
         console.error('Navigation error:', error.message);
         await browser.close();
-        process.exit(1);
+        return false; // Signal failure to trigger restart instead of exiting
     }
 };
 
-// Run the script once
+// Retry loop to restart the script if needed
 (async () => {
-    console.log('Starting script...');
-    await runScript().catch(error => {
-        console.error('Script failed:', error.message);
-        process.exit(1);
-    });
+    let restartCount = 0;
+    const maxRestarts = 10; // Prevent infinite restarts
+
+    while (restartCount < maxRestarts) {
+        console.log(`Script attempt ${restartCount + 1}/${maxRestarts}`);
+        const success = await runScript();
+        if (success) {
+            console.log('Script completed successfully.');
+            break;
+        }
+        restartCount++;
+        if (restartCount < maxRestarts) {
+            console.log('Restarting script due to ad button timeout or "PLAY NOW" failures...');
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Brief delay before restart
+        } else {
+            console.log('Max restart attempts reached. Exiting...');
+            process.exit(1);
+        }
+    }
 })();
