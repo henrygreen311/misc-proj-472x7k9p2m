@@ -136,7 +136,7 @@ const runScript = async () => {
                                                     for (let y = 400; y <= 410 && !shouldRestart; y += 10) {
                                                         console.log(`Clicking sequence #${i}/10 at (320, ${y})...`);
                                                         await frame.click('canvas', { position: { x: 320, y: y } });
-                                                        await gamePage.waitForTimeout(5000);
+                                                        await gamePage.waitForTimeout(10000);
                                                     }
                                                 }
                                                 break;
