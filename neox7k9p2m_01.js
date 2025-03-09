@@ -78,10 +78,11 @@ const runScript = async () => {
                 console.log('"Knife Smash" found! Clicking...');
                 await gamePage.click('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")');
 
-                // Add a small delay to ensure the page updates after clicking "Knife Smash"
-                await gamePage.waitForTimeout(2000);
+                // Wait for the page to reach domcontentloaded state after clicking "Knife Smash"
+                console.log('Waiting for page to load after clicking "Knife Smash"...');
+                await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
-                // Retry logic for "PLAY NOW" button
+                // Retry logic for "PLAY NOW" button with shorter timeout
                 let playNowButtonFound = false;
                 let playNowAttempts = 0;
                 const maxPlayNowAttempts = 3;
@@ -89,8 +90,8 @@ const runScript = async () => {
                 while (!playNowButtonFound && playNowAttempts < maxPlayNowAttempts) {
                     try {
                         console.log('Waiting for "PLAY NOW" button...');
-                        // Increased timeout to 90 seconds
-                        await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-now"]', { timeout: 90000, state: 'visible' });
+                        // Reduced timeout to 30 seconds since domcontentloaded is handled
+                        await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-now"]', { timeout: 30000, state: 'visible' });
                         console.log('"PLAY NOW" button found! Clicking...');
                         await gamePage.click('ark-div[ark-test-id="ark-play-now"]');
                         playNowButtonFound = true;
@@ -104,7 +105,7 @@ const runScript = async () => {
                             await gamePage.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
                             await gamePage.waitForSelector('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")', { timeout: 30000, state: 'visible' });
                             await gamePage.click('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")');
-                            await gamePage.waitForTimeout(2000);
+                            await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
                         } else {
                             console.error('Max attempts reached for "PLAY NOW" button. Aborting this session...');
                             await browser.close();
@@ -291,7 +292,7 @@ const runScript = async () => {
     } catch (error) {
         console.error('Navigation error:', error.message);
         await browser.close();
-        return false; // Signal failure to trigger restart instead of exiting
+        return false; // Signal failure to trigger restart
     }
 };
 
