@@ -167,6 +167,13 @@ const runScript = async () => {
                                                         }
                                                     }
                                                     if (!shouldStop) {
+                                                        // Check for "Play Again" between clicks
+                                                        const playAgain = await gamePage.$('ark-div[ark-test-id="ark-play-again-button"]');
+                                                        if (playAgain) {
+                                                            console.log('"Play Again" detected during clicks! Stopping sequence...');
+                                                            shouldStop = true;
+                                                            break;
+                                                        }
                                                         await gamePage.waitForTimeout(10000);
                                                     }
                                                 }
@@ -208,7 +215,7 @@ const runScript = async () => {
                                 await gamePage.mouse.click(50, 50, { timeout: 10000 });
                             }
                         } catch (error) {
-                            // Silently ignore errors unless shouldStop is true
+                            // Silently ignore errors
                         }
                         await gamePage.waitForTimeout(5000);
                     }
@@ -219,27 +226,15 @@ const runScript = async () => {
                     try {
                         console.log('Waiting for "Play Again" button...');
                         const playAgainButton = await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-again-button"]', { timeout: 300000 });
-                        const isVisible = await playAgainButton.isVisible();
-                        if (isVisible) {
-                            console.log('"Play Again" button found! Clicking...');
-                            await playAgainButton.click({ timeout: 10000 });
-                            console.log('"Play Again" clicked. Stopping script...');
-                            shouldStop = true; // Signal other functions to stop
-                        } else {
-                            console.log('"Play Again" button found but not visible yet, waiting...');
-                            await gamePage.waitForTimeout(30000);
-                            if (await playAgainButton.isVisible()) {
-                                console.log('"Play Again" button now visible! Clicking...');
-                                await playAgainButton.click({ timeout: 10000 });
-                                console.log('"Play Again" clicked. Stopping script...');
-                                shouldStop = true;
-                            } else {
-                                throw new Error('"Play Again" button remained hidden');
-                            }
-                        }
+                        console.log('"Play Again" button found! Clicking (regardless of visibility)...');
+                        await playAgainButton.click({ timeout: 10000, force: true }); // Force click even if hidden
+                        console.log('"Play Again" clicked. Stopping script...');
+                        shouldStop = true;
                     } catch (error) {
                         console.error('Error waiting for "Play Again" button:', error.message);
-                        throw error;
+                        if (!shouldStop) { // Only throw if not stopped by sequence
+                            throw error;
+                        }
                     }
                 };
 
