@@ -107,8 +107,6 @@ const runScript = async () => {
                     }
                 }
 
-                let shouldStop = false; // Flag to stop clicking when game ends
-
                 // Function to play the game sequence
                 const playGameSequence = async () => {
                     try {
@@ -132,7 +130,7 @@ const runScript = async () => {
                         let canvasFound = false;
                         let frame;
 
-                        while (attempts < maxAttempts && !canvasFound && !shouldStop) {
+                        while (attempts < maxAttempts && !canvasFound) {
                             try {
                                 const mainIframeElement = await gamePage.waitForSelector('iframe[ark-test-id="ark-game-iframe"]', { timeout: 30000, state: 'visible' });
                                 const mainIframe = await mainIframeElement.contentFrame();
@@ -147,12 +145,12 @@ const runScript = async () => {
                                         if (canvas) {
                                             canvasFound = true;
                                             console.log('Game canvas found! Clicking different positions...');
-                                            for (let i = 1; i <= 10 && !shouldStop; i++) {
-                                                for (let y = 400; y <= 410 && !shouldStop; y += 10) {
+                                            for (let i = 1; i <= 10; i++) {
+                                                for (let y = 400; y <= 410; y += 10) {
                                                     console.log(`Clicking sequence #${i}/10 at (320, ${y})...`);
                                                     let clickAttempts = 0;
                                                     const maxClickAttempts = 3;
-                                                    while (clickAttempts < maxClickAttempts && !shouldStop) {
+                                                    while (clickAttempts < maxClickAttempts) {
                                                         try {
                                                             await frame.click('canvas[width="640"][height="480"]', { position: { x: 320, y: y }, timeout: 30000 });
                                                             break;
@@ -166,9 +164,7 @@ const runScript = async () => {
                                                             }
                                                         }
                                                     }
-                                                    if (!shouldStop) {
-                                                        await gamePage.waitForTimeout(10000);
-                                                    }
+                                                    await gamePage.waitForTimeout(10000); // 10s wait after each click
                                                 }
                                             }
                                             break;
@@ -179,29 +175,35 @@ const runScript = async () => {
                             } catch (error) {
                                 attempts++;
                                 console.log(`Attempt ${attempts}/${maxAttempts} failed: ${error.message}`);
-                                if (attempts < maxAttempts && !shouldStop) {
+                                if (attempts < maxAttempts) {
                                     console.log('Waiting 5 seconds before retrying...');
                                     await gamePage.waitForTimeout(5000);
                                 }
                             }
                         }
 
-                        if (!canvasFound && !shouldStop) {
+                        if (!canvasFound) {
                             console.error('Failed to find stable canvas after max attempts.');
                             throw new Error('Canvas not found');
                         }
+
+                        console.log('Clicking sequence completed. Waiting for game end...');
+                        await gamePage.waitForSelector('ark-div.ark-game-end.background-blue', { timeout: 300000, state: 'visible' });
+                        console.log('Game end container visible! Waiting for "Play Again" button...');
+                        const playAgainButton = await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-again-button"]', { timeout: 30000 });
+                        console.log('"Play Again" button found! Clicking...');
+                        await playAgainButton.click({ timeout: 10000 });
+
                         console.log('Game sequence completed successfully');
                     } catch (error) {
-                        if (!shouldStop) {
-                            console.error('Error in game sequence:', error.message);
-                            throw error;
-                        }
+                        console.error('Error in game sequence:', error.message);
+                        throw error;
                     }
                 };
 
                 // Inactivity popup handler (silent)
                 const handleInactivityPopup = async () => {
-                    while (!shouldStop) {
+                    while (true) {
                         try {
                             const popup = await gamePage.$('#ARK_popup_gamePaused');
                             if (popup) {
@@ -214,30 +216,12 @@ const runScript = async () => {
                     }
                 };
 
-                // End game handler with game end container check
-                const handleEndGame = async () => {
-                    try {
-                        console.log('Waiting for game end container to be visible...');
-                        await gamePage.waitForSelector('ark-div.ark-game-end.background-blue', { timeout: 300000, state: 'visible' });
-                        console.log('Game end container visible! Waiting for "Play Again" button...');
-                        const playAgainButton = await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-again-button"]', { timeout: 30000 });
-                        console.log('"Play Again" button found! Clicking...');
-                        await playAgainButton.click({ timeout: 10000 });
-                        console.log('"Play Again" clicked. Stopping script...');
-                        shouldStop = true;
-                    } catch (error) {
-                        console.error('Error in end game handling:', error.message);
-                        throw error;
-                    }
-                };
-
-                // Run the game sequence and handlers concurrently
+                // Run the game sequence and inactivity handler concurrently
                 await Promise.all([
                     playGameSequence(),
-                    handleInactivityPopup(),
-                    handleEndGame()
+                    handleInactivityPopup()
                 ]).then(async () => {
-                    console.log('All tasks completed or stopped. Closing browser...');
+                    console.log('All tasks completed. Closing browser...');
                     await browser.close();
                     process.exit(0); // Exit successfully
                 }).catch(async error => {
