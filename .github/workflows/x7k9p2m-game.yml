@@ -3,7 +3,7 @@ name: Run NeoBux-game Script
 on:
   workflow_dispatch:  # Manually trigger from GitHub Actions
   schedule:
-    - cron: "0 */5 * * *"  # Runs once every 24 hours
+    - cron: "0 */5 * * *"  # Runs every 5 hours
 
 concurrency:
   group: neobux-game
@@ -12,6 +12,7 @@ concurrency:
 jobs:
   automate:
     runs-on: ubuntu-latest
+    timeout-minutes: 330  # Auto-terminate after 5 hours 30 minutes
 
     steps:
       - name: Checkout repository
