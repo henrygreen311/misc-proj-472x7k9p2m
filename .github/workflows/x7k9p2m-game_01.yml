@@ -30,7 +30,7 @@ jobs:
         run: |
           for i in {1..100}; do
             echo "Running iteration $i"
-            node neox7k9p2m-01.js  # Replace with your actual script filename
+            node neox7k9p2m_01.js  # Replace with your actual script filename
           done
         env:
           DISPLAY: ':99.0'  # Enable Xvfb to run headless
