@@ -2,7 +2,7 @@ const { firefox } = require('playwright');
 const fs = require('fs');
 
 (async () => {
-    const sessionFile = 'x7k9p2m _01.json';
+    const sessionFile = 'x7k9p2m _08.json';
 
     if (!fs.existsSync(sessionFile)) {
         console.error('Session file not found!');
