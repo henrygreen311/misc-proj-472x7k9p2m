@@ -90,7 +90,6 @@ const runScript = async () => {
                 while (!playNowButtonFound && playNowAttempts < maxPlayNowAttempts) {
                     try {
                         console.log('Waiting for "PLAY NOW" button...');
-                        // Reduced timeout to 30 seconds since domcontentloaded is handled
                         await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-now"]', { timeout: 30000, state: 'visible' });
                         console.log('"PLAY NOW" button found! Clicking...');
                         await gamePage.click('ark-div[ark-test-id="ark-play-now"]');
@@ -124,9 +123,12 @@ const runScript = async () => {
                 let sequenceCount = 0;
                 const maxSequences = 1;
 
-                // Function to play the game sequence
+                // Function to play the game sequence with retry logic
                 const playGameSequence = async () => {
-                    while (sequenceCount < maxSequences) {
+                    let sequenceAttempts = 0;
+                    const maxSequenceAttempts = 3;
+
+                    while (sequenceCount < maxSequences && sequenceAttempts < maxSequenceAttempts) {
                         if (shouldRestart) {
                             console.log('Restart flag detected, stopping current sequence...');
                             shouldRestart = false;
@@ -134,7 +136,7 @@ const runScript = async () => {
                         }
 
                         try {
-                            console.log(`Starting sequence ${sequenceCount + 1}/${maxSequences}...`);
+                            console.log(`Starting sequence ${sequenceCount + 1}/${maxSequences} (Attempt ${sequenceAttempts + 1}/${maxSequenceAttempts})...`);
                             console.log('Waiting for Ad button...');
                             await gamePage.waitForTimeout(3000);
                             await gamePage.waitForSelector('button.ark-ad-button[data-type="play-button"]', { timeout: 30000, state: 'visible' });
@@ -199,7 +201,8 @@ const runScript = async () => {
                                 console.log(`Sequence ${sequenceCount}/${maxSequences} completed successfully`);
                             }
                         } catch (error) {
-                            console.log('Error in game sequence:', error.message);
+                            sequenceAttempts++;
+                            console.log(`Sequence attempt ${sequenceAttempts}/${maxSequenceAttempts} failed: ${error.message}`);
                             if (error.message.includes('Timeout 30000ms exceeded') && error.message.includes('button.ark-ad-button[data-type="play-button"]')) {
                                 adButtonTimeoutCount++;
                                 console.log(`Ad button timeout occurred (${adButtonTimeoutCount}/${maxAdButtonTimeouts})`);
@@ -209,11 +212,29 @@ const runScript = async () => {
                                     return false; // Signal to restart
                                 }
                             }
-                            await gamePage.waitForTimeout(5000);
+                            if (sequenceAttempts < maxSequenceAttempts) {
+                                console.log('Retrying sequence in 5 seconds...');
+                                await gamePage.waitForTimeout(5000);
+                                console.log('Reloading game page to recover...');
+                                await gamePage.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+                                // Navigate back to the game
+                                await gamePage.waitForSelector('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")', { timeout: 30000, state: 'visible' });
+                                await gamePage.click('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")');
+                                await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+                                await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-now"]', { timeout: 30000, state: 'visible' });
+                                await gamePage.click('ark-div[ark-test-id="ark-play-now"]');
+                            } else {
+                                console.error('Max sequence attempts reached. Aborting this session...');
+                                await browser.close();
+                                return false; // Signal failure to trigger restart
+                            }
                         }
                     }
-                    console.log(`Completed all ${maxSequences} sequences!`);
-                    return true; // Signal successful completion
+                    if (sequenceCount >= maxSequences) {
+                        console.log(`Completed all ${maxSequences} sequences!`);
+                        return true; // Signal successful completion
+                    }
+                    return false; // Signal failure if max attempts reached without success
                 };
 
                 // Main game loop
