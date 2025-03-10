@@ -22,6 +22,6 @@ jobs:
         run: npm install playwright && npx playwright install firefox
 
       - name: Run automation script
-        run: node x7k9p2m-survey_01.js  # Replace 'script.js' with your actual script filename
+        run: node x7k9p2m-survey_08.js  # Replace 'script.js' with your actual script filename
         env:
           DISPLAY: ':99.0'  # Enable Xvfb to run headless
