@@ -1,0 +1,36 @@
+name: Run NeoBux-game_06 Script
+
+on:
+  workflow_dispatch:  # Manually trigger from GitHub Actions
+  schedule:
+    - cron: "0 */8 * * *"  # Runs every 8 hours
+
+concurrency:
+  group: neobux-game_01
+  cancel-in-progress: true
+
+jobs:
+  automate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330  # Auto-terminate after 5 hours 30 minutes
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Playwright
+        run: npm install playwright && npx playwright install firefox
+
+      - name: Run automation script 100 times
+        run: |
+          for i in {1..100}; do
+            echo "Running iteration $i"
+            node neox7k9p2m_06.js  # Replace with your actual script filename
+          done
+        env:
+          DISPLAY: ':99.0'  # Enable Xvfb to run headless
