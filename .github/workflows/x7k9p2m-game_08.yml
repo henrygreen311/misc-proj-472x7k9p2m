@@ -6,7 +6,7 @@ on:
     - cron: "0 */8 * * *"  # Runs every 8 hours
 
 concurrency:
-  group: neobux-game_01
+  group: neobux-game_08
   cancel-in-progress: true
 
 jobs:
