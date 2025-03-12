@@ -411,4 +411,4 @@ const runScript = async () => {
             process.exit(1);
         }
     }
-})(
+})();
