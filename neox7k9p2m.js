@@ -58,15 +58,13 @@ const runScript = async () => {
     });
 
     // Optional: Block bot-detection scripts (uncomment if needed)
-    /*
-    await page.route('**/*', route => {
-        const url = route.request().url();
-        if (url.includes('detect-bot') || url.includes('fingerprint')) {
-            return route.abort();
-        }
-        route.continue();
-    });
-    */
+    // await page.route('**/*', route => {
+    //     const url = route.request().url();
+    //     if (url.includes('detect-bot') || url.includes('fingerprint')) {
+    //         return route.abort();
+    //     }
+    //     route.continue();
+    // });
 
     console.log('Loading session data...');
     try {
