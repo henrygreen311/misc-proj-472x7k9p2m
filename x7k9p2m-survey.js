@@ -27,9 +27,42 @@ const fs = require('fs');
         return cookie;
     });
 
-    const browser = await firefox.launch({ headless: true });
-    const context = await browser.newContext();
+    const browser = await firefox.launch({
+        headless: true,
+        firefoxUserPrefs: {
+            'dom.webdriver.enabled': false,           // Prevents WebDriver flag detection
+            'privacy.resistFingerprinting': false,    // Avoids Tor-like suspicious fingerprint
+            'general.appversion.override': '5.0 (X11)',  // Spoofed app version consistent with Linux
+            'general.platform.override': 'Linux x86_64', // Matches the Linux user agent
+            'intl.accept_languages': 'en-US,en',      // Realistic language settings
+            'media.peerconnection.enabled': false,    // Disables WebRTC to prevent IP leaks
+            'webgl.disabled': true,                   // Prevents WebGL fingerprinting
+            'browser.sessionstore.resume_from_crash': false  // Avoids session restore hints
+        }
+    });
+
+    const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0'
+    });
     const page = await context.newPage();
+
+    // Spoof navigator.webdriver to return false
+    await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => false,
+        });
+    });
+
+    // Optional: Block bot-detection scripts (uncomment if needed)
+    /*
+    await page.route('**/*', route => {
+        const url = route.request().url();
+        if (url.includes('detect-bot') || url.includes('fingerprint')) {
+            return route.abort();
+        }
+        route.continue();
+    });
+    */
 
     console.log('Loading session data...');
     try {
@@ -43,6 +76,7 @@ const fs = require('fs');
     console.log('Opening NeoBux Dashboard...');
     try {
         await page.goto('https://www.neobux.com/c/', { waitUntil: 'networkidle', timeout: 60000 });
+        await page.waitForTimeout(300); // Small delay to mimic human behavior
 
         if (page.url().includes('/c/')) {
             console.log('Login successful.');
@@ -52,6 +86,7 @@ const fs = require('fs');
 
             console.log('Navigating to the content page...');
             await page.goto('https://www.neobux.com/m/v/', { waitUntil: 'networkidle', timeout: 60000 });
+            await page.waitForTimeout(400); // Small delay
 
             console.log('Content page loaded.');
 
@@ -68,6 +103,7 @@ const fs = require('fs');
                 for (let i = 0; i < adContainers.length; i++) {
                     console.log(`Clicking ad ${i + 1}/${adContainers.length}...`);
                     await adContainers[i].click();
+                    await page.waitForTimeout(500); // Delay after click
 
                     console.log('Waiting for ad link...');
                     try {
@@ -82,6 +118,12 @@ const fs = require('fs');
                         console.log(`Opening ad link in new tab: ${adLink}`);
 
                         const adPage = await context.newPage();
+                        // Spoof navigator.webdriver in the new tab as well
+                        await adPage.addInitScript(() => {
+                            Object.defineProperty(navigator, 'webdriver', {
+                                get: () => false,
+                            });
+                        });
                         await adPage.goto(adLink, { waitUntil: 'domcontentloaded', timeout: 90000 });
 
                         console.log('Waiting 15 seconds...');
@@ -134,6 +176,7 @@ const fs = require('fs');
 
                             // Click the link, which redirects the current page
                             await apLinkElement.click();
+                            await page.waitForTimeout(500); // Delay after click
 
                             console.log(`Redirected to: ${page.url()}. Waiting 15 seconds...`);
                             await page.waitForTimeout(15000);
@@ -142,6 +185,7 @@ const fs = require('fs');
                             if (!page.url().includes('/m/v/')) {
                                 console.log('Navigating back to content page...');
                                 await page.goto('https://www.neobux.com/m/v/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+                                await page.waitForTimeout(400); // Delay after navigation
                             } else {
                                 console.log('Already on content page, checking ap_ctr...');
                             }
