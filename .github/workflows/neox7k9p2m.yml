@@ -21,6 +21,12 @@ jobs:
       - name: Install Playwright
         run: npm install playwright && npx playwright install firefox
 
+      - name: Display current IP address
+        run: |
+          echo "Current IP address of this runner:"
+          curl -s icanhazip.com
+          echo ""  # Adds a newline for readability in logs
+
       - name: Run automation script
         run: node x7k9p2m-survey.js  # Replace 'script.js' with your actual script filename
         env:
