@@ -31,9 +31,42 @@ const runScript = async () => {
         return cookie;
     });
 
-    const browser = await firefox.launch({ headless: true });
-    const context = await browser.newContext();
+    const browser = await firefox.launch({
+        headless: true,
+        firefoxUserPrefs: {
+            'dom.webdriver.enabled': false,           // Prevents WebDriver flag detection
+            'privacy.resistFingerprinting': false,    // Avoids Tor-like suspicious fingerprint
+            'general.appversion.override': '5.0 (X11)',  // Spoofed app version consistent with Linux
+            'general.platform.override': 'Linux x86_64', // Matches the Linux user agent
+            'intl.accept_languages': 'en-US,en',      // Realistic language settings
+            'media.peerconnection.enabled': false,    // Disables WebRTC to prevent IP leaks
+            'webgl.disabled': true,                   // Prevents WebGL fingerprinting
+            'browser.sessionstore.resume_from_crash': false  // Avoids session restore hints
+        }
+    });
+
+    const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0'
+    });
     const page = await context.newPage();
+
+    // Spoof navigator.webdriver to return false
+    await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => false,
+        });
+    });
+
+    // Optional: Block bot-detection scripts (uncomment if needed)
+    /*
+    await page.route('**/*', route => {
+        const url = route.request().url();
+        if (url.includes('detect-bot') || url.includes('fingerprint')) {
+            return route.abort();
+        }
+        route.continue();
+    });
+    */
 
     console.log('Loading session data...');
     try {
@@ -47,10 +80,12 @@ const runScript = async () => {
     console.log('Opening NeoBux Dashboard...');
     try {
         await page.goto('https://www.neobux.com/c/', { waitUntil: 'domcontentloaded', timeout: 120000 });
+        await page.waitForTimeout(300); // Small delay to mimic human behavior
 
         if (page.url().includes('/c/')) {
             console.log('Login successful. Navigating to the game page...');
             await page.goto('https://www.neobux.com/m/ag/', { waitUntil: 'domcontentloaded', timeout: 120000 });
+            await page.waitForTimeout(400); // Small delay
 
             console.log('Checking for the game start button...');
             const gameButton = await page.waitForSelector('table#pntb', { timeout: 30000, state: 'visible' });
@@ -58,6 +93,7 @@ const runScript = async () => {
             if (gameButton) {
                 console.log('Game button found! Clicking...');
                 await gameButton.click();
+                await page.waitForTimeout(500); // Delay after click
 
                 console.log('Waiting for the new tab to open...');
                 const [gamePage] = await Promise.all([
@@ -65,10 +101,18 @@ const runScript = async () => {
                     page.waitForLoadState('domcontentloaded'),
                 ]);
 
+                // Spoof navigator.webdriver in the new tab as well
+                await gamePage.addInitScript(() => {
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => false,
+                    });
+                });
+
                 console.log('New tab detected. Verifying the game page...');
                 await gamePage.waitForSelector('span:text("All Games")', { timeout: 30000, state: 'visible' });
                 console.log('"All Games" button appeared! Clicking...');
                 await gamePage.click('span:text("All Games")');
+                await gamePage.waitForTimeout(300); // Delay after click
 
                 console.log('Verifying the page loaded successfully...');
                 await gamePage.waitForSelector('a.contact-us-btn', { timeout: 30000, state: 'visible' });
@@ -77,8 +121,8 @@ const runScript = async () => {
                 await gamePage.waitForSelector('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")', { timeout: 30000, state: 'visible' });
                 console.log('"Knife Smash" found! Clicking...');
                 await gamePage.click('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")');
+                await gamePage.waitForTimeout(400); // Delay after click
 
-                // Wait for the page to reach domcontentloaded state after clicking "Knife Smash"
                 console.log('Waiting for page to load after clicking "Knife Smash"...');
                 await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
@@ -93,6 +137,7 @@ const runScript = async () => {
                         await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-now"]', { timeout: 30000, state: 'visible' });
                         console.log('"PLAY NOW" button found! Clicking...');
                         await gamePage.click('ark-div[ark-test-id="ark-play-now"]');
+                        await gamePage.waitForTimeout(500); // Delay after click
                         playNowButtonFound = true;
                     } catch (error) {
                         playNowAttempts++;
@@ -217,7 +262,6 @@ const runScript = async () => {
                                 await gamePage.waitForTimeout(5000);
                                 console.log('Reloading game page to recover...');
                                 await gamePage.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
-                                // Navigate back to the game
                                 await gamePage.waitForSelector('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")', { timeout: 30000, state: 'visible' });
                                 await gamePage.click('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")');
                                 await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
