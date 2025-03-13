@@ -34,14 +34,11 @@ const runScript = async () => {
     const browser = await firefox.launch({
         headless: true,
         firefoxUserPrefs: {
-            'dom.webdriver.enabled': false,           // Prevents WebDriver flag detection
             'privacy.resistFingerprinting': false,    // Avoids Tor-like suspicious fingerprint
-            'general.appversion.override': '5.0 (X11)',  // Spoofed app version consistent with Linux
             'general.platform.override': 'Linux x86_64', // Matches the Linux user agent
             'intl.accept_languages': 'en-US,en',      // Realistic language settings
             'media.peerconnection.enabled': false,    // Disables WebRTC to prevent IP leaks
-            'webgl.disabled': true,                   // Prevents WebGL fingerprinting
-            'browser.sessionstore.resume_from_crash': false  // Avoids session restore hints
+            'webgl.disabled': true                    // Prevents WebGL fingerprinting
         }
     });
 
@@ -56,15 +53,6 @@ const runScript = async () => {
             get: () => false,
         });
     });
-
-    // Optional: Block bot-detection scripts (uncomment if needed)
-    // await page.route('**/*', route => {
-    //     const url = route.request().url();
-    //     if (url.includes('detect-bot') || url.includes('fingerprint')) {
-    //         return route.abort();
-    //     }
-    //     route.continue();
-    // });
 
     console.log('Loading session data...');
     try {
