@@ -34,15 +34,7 @@ const runScript = async () => {
     const browser = await firefox.launch({
         headless: true,
         firefoxUserPrefs: {
-            'dom.webdriver.enabled': false,
-            'privacy.resistFingerprinting': false,
-            'general.appversion.override': '5.0 (X11)',
-            'general.platform.override': 'Linux x86_64',
-            'intl.accept_languages': 'en-US,en',
-            'media.peerconnection.enabled': false,
-            'webgl.disabled': true,
-            'browser.sessionstore.resume_from_crash': false,
-            // Allow pop-ups
+            // Only keep pop-up settings
             'dom.disable_open_during_load': false,
             'dom.popup_maximum': 20
         }
@@ -50,17 +42,10 @@ const runScript = async () => {
 
     const context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0',
-        viewport: { width: 1280, height: 720 }, // Mimic a real browser window
-        acceptDownloads: true // Allow pop-ups/downloads
+        viewport: { width: 1280, height: 720 },
+        acceptDownloads: true
     });
     const page = await context.newPage();
-
-    // Spoof navigator.webdriver to return false
-    await page.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', {
-            get: () => false,
-        });
-    });
 
     console.log('Loading session data...');
     try {
@@ -86,45 +71,49 @@ const runScript = async () => {
 
             if (gameButton) {
                 console.log('Game button found! Clicking...');
+                await gameButton.click();
+                await page.waitForTimeout(500);
+
+                console.log('Waiting for the new tab to open...');
                 let gamePage;
                 let attempts = 0;
                 const maxAttempts = 3;
 
                 while (!gamePage && attempts < maxAttempts) {
                     try {
-                        await gameButton.click();
-                        await page.waitForTimeout(500);
-
-                        console.log(`Attempt ${attempts + 1}/${maxAttempts}: Waiting for the new tab to open...`);
+                        console.log(`Attempt ${attempts + 1}/${maxAttempts} to detect new tab...`);
                         [gamePage] = await Promise.all([
-                            context.waitForEvent('page', { timeout: 60000 }), // Increased to 60s
+                            context.waitForEvent('page', { timeout: 60000 }),
                             page.waitForLoadState('domcontentloaded', { timeout: 60000 })
                         ]);
-                        console.log(`New tab detected at URL: ${gamePage.url()}`);
+                        console.log(`New tab opened at URL: ${gamePage.url()}`);
                     } catch (error) {
                         attempts++;
                         console.log(`Tab detection failed: ${error.message}`);
                         if (attempts < maxAttempts) {
                             console.log('Retrying in 5 seconds...');
                             await page.waitForTimeout(5000);
-                            // Re-check button in case page state changed
-                            const refreshedButton = await page.waitForSelector('table#pntb', { timeout: 30000, state: 'visible' });
-                            console.log('Re-clicking game button...');
-                            await refreshedButton.click();
+                            const refreshedButton = await page.$('table#pntb');
+                            if (refreshedButton) {
+                                console.log('Re-clicking game button...');
+                                await refreshedButton.click();
+                                await page.waitForTimeout(500);
+                            }
                         } else {
-                            console.log('Max attempts reached. Checking for redirect or existing pages...');
+                            console.log('Max attempts reached. Checking existing pages...');
                             const pages = context.pages();
                             console.log(`Found ${pages.length} pages: ${pages.map(p => p.url()).join(', ')}`);
                             if (pages.length > 1) {
                                 gamePage = pages[1];
                                 console.log(`Using existing page at URL: ${gamePage.url()}`);
                             } else {
+                                console.error('No new tab detected. Checking for redirect...');
                                 await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
                                 if (!page.url().includes('/m/ag/')) {
                                     console.log(`Redirect detected to ${page.url()}. Using current page...`);
                                     gamePage = page;
                                 } else {
-                                    console.error('No new tab or redirect detected. Aborting...');
+                                    console.error('No tab or redirect found. Aborting...');
                                     await browser.close();
                                     return false;
                                 }
@@ -134,17 +123,10 @@ const runScript = async () => {
                 }
 
                 if (!gamePage) {
-                    console.error('Failed to proceed to game page. Restarting script...');
+                    console.error('Failed to detect game page after retries. Restarting...');
                     await browser.close();
                     return false;
                 }
-
-                // Spoof navigator.webdriver in the game page
-                await gamePage.addInitScript(() => {
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => false,
-                    });
-                });
 
                 console.log('Verifying the game page...');
                 await gamePage.waitForSelector('span:text("All Games")', { timeout: 30000, state: 'visible' });
@@ -164,7 +146,6 @@ const runScript = async () => {
                 console.log('Waiting for page to load after clicking "Knife Smash"...');
                 await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
-                // Retry logic for "PLAY NOW" button
                 let playNowButtonFound = false;
                 let playNowAttempts = 0;
                 const maxPlayNowAttempts = 3;
@@ -179,7 +160,7 @@ const runScript = async () => {
                         playNowButtonFound = true;
                     } catch (error) {
                         playNowAttempts++;
-                        console.log(`Attempt ${playNowAttempts}/${maxPlayNowAttempts} failed to find "PLAY NOW" button: ${error.message}`);
+                        console.log(`Attempt ${playNowAttempts}/${maxPlayNowAttempts} failed: ${error.message}`);
                         if (playNowAttempts < maxPlayNowAttempts) {
                             console.log('Retrying in 5 seconds...');
                             await gamePage.waitForTimeout(5000);
