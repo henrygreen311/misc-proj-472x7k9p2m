@@ -34,13 +34,14 @@ const runScript = async () => {
     const browser = await firefox.launch({
         headless: true,
         firefoxUserPrefs: {
-            'privacy.resistFingerprinting': false,
-            'general.platform.override': 'Linux x86_64',
-            'intl.accept_languages': 'en-US,en',
-            'media.peerconnection.enabled': false,
-            'webgl.disabled': true,
-            'dom.popup_maximum': 20,
-            'privacy.popups.disable_from_plugins': 0
+            'dom.webdriver.enabled': false,           // Prevents WebDriver flag detection
+            'privacy.resistFingerprinting': false,    // Avoids Tor-like suspicious fingerprint
+            'general.appversion.override': '5.0 (X11)',  // Spoofed app version consistent with Linux
+            'general.platform.override': 'Linux x86_64', // Matches the Linux user agent
+            'intl.accept_languages': 'en-US,en',      // Realistic language settings
+            'media.peerconnection.enabled': false,    // Disables WebRTC to prevent IP leaks
+            'webgl.disabled': true,                   // Prevents WebGL fingerprinting
+            'browser.sessionstore.resume_from_crash': false  // Avoids session restore hints
         }
     });
 
@@ -55,6 +56,15 @@ const runScript = async () => {
             get: () => false,
         });
     });
+
+    // Optional: Block bot-detection scripts (uncomment if needed)
+    // await page.route('**/*', route => {
+    //     const url = route.request().url();
+    //     if (url.includes('detect-bot') || url.includes('fingerprint')) {
+    //         return route.abort();
+    //     }
+    //     route.continue();
+    // });
 
     console.log('Loading session data...');
     try {
@@ -87,7 +97,7 @@ const runScript = async () => {
                 console.log(`New tab opened: ${gamePage.url()}`);
                 await gamePage.waitForLoadState('domcontentloaded', { timeout: 60000 });
 
-                // Spoof navigator.webdriver in the new tab
+                // Spoof navigator.webdriver in the new tab as well
                 await gamePage.addInitScript(() => {
                     Object.defineProperty(navigator, 'webdriver', {
                         get: () => false,
@@ -112,7 +122,7 @@ const runScript = async () => {
                 console.log('Waiting for page to load after clicking "Knife Smash"...');
                 await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
-                // Retry logic for "PLAY NOW" button
+                // Retry logic for "PLAY NOW" button with shorter timeout
                 let playNowButtonFound = false;
                 let playNowAttempts = 0;
                 const maxPlayNowAttempts = 3;
@@ -139,7 +149,7 @@ const runScript = async () => {
                         } else {
                             console.error('Max attempts reached for "PLAY NOW" button. Aborting this session...');
                             await browser.close();
-                            return false;
+                            return false; // Signal failure to trigger restart
                         }
                     }
                 }
@@ -240,7 +250,7 @@ const runScript = async () => {
                                 if (adButtonTimeoutCount >= maxAdButtonTimeouts) {
                                     console.log('Max ad button timeouts reached. Restarting script from beginning...');
                                     await browser.close();
-                                    return false;
+                                    return false; // Signal to restart
                                 }
                             }
                             if (sequenceAttempts < maxSequenceAttempts) {
@@ -256,15 +266,15 @@ const runScript = async () => {
                             } else {
                                 console.error('Max sequence attempts reached. Aborting this session...');
                                 await browser.close();
-                                return false;
+                                return false; // Signal failure to trigger restart
                             }
                         }
                     }
                     if (sequenceCount >= maxSequences) {
                         console.log(`Completed all ${maxSequences} sequences!`);
-                        return true;
+                        return true; // Signal successful completion
                     }
-                    return false;
+                    return false; // Signal failure if max attempts reached without success
                 };
 
                 // Main game loop
@@ -343,14 +353,14 @@ const runScript = async () => {
     } catch (error) {
         console.error('Navigation error:', error.message);
         await browser.close();
-        return false;
+        return false; // Signal failure to trigger restart
     }
 };
 
 // Retry loop to restart the script if needed
 (async () => {
     let restartCount = 0;
-    const maxRestarts = 10;
+    const maxRestarts = 10; // Prevent infinite restarts
 
     while (restartCount < maxRestarts) {
         console.log(`Script attempt ${restartCount + 1}/${maxRestarts}`);
@@ -362,7 +372,7 @@ const runScript = async () => {
         restartCount++;
         if (restartCount < maxRestarts) {
             console.log('Restarting script due to ad button timeout or "PLAY NOW" failures...');
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Brief delay before restart
         } else {
             console.log('Max restart attempts reached. Exiting...');
             process.exit(1);
