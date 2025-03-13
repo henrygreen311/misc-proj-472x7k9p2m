@@ -95,7 +95,7 @@ const runScript = async () => {
 
                 console.log('Waiting for the new tab to open...');
                 const [gamePage] = await Promise.all([
-                    context.waitForEvent('page', { timeout: 30000 }),
+                    context.waitForEvent('page', { timeout: 60000 }),
                     page.waitForLoadState('domcontentloaded'),
                 ]);
 
