@@ -39,8 +39,8 @@ const runScript = async () => {
             'intl.accept_languages': 'en-US,en',
             'media.peerconnection.enabled': false,
             'webgl.disabled': true,
-            'dom.popup_maximum': 20,           // Allow pop-ups
-            'privacy.popups.disable_from_plugins': 0 // Disable pop-up blocking
+            'dom.popup_maximum': 20,
+            'privacy.popups.disable_from_plugins': 0
         }
     });
 
@@ -79,28 +79,13 @@ const runScript = async () => {
             const gameButton = await page.waitForSelector('table#pntb', { timeout: 30000, state: 'visible' });
 
             if (gameButton) {
-                console.log('Game button found! Clicking...');
+                console.log('Game button found! Clicking and waiting for new tab...');
+                const newPagePromise = context.waitForEvent('page', { timeout: 60000 });
                 await gameButton.click();
-                await page.waitForTimeout(1000); // Give it time to react
+                const gamePage = await newPagePromise;
 
-                // Debug: Check number of pages before waiting
-                const pagesBefore = await context.pages();
-                console.log(`Pages before new tab wait: ${pagesBefore.length}`);
-
-                console.log('Waiting for the new tab to open...');
-                let gamePage;
-                try {
-                    gamePage = await context.waitForEvent('page', { timeout: 60000 }); // Increased timeout
-                    await gamePage.waitForLoadState('domcontentloaded');
-                    console.log(`New tab URL: ${gamePage.url()}`);
-                } catch (error) {
-                    console.error('Failed to detect new page:', error.message);
-                    const allPages = await context.pages();
-                    console.log(`Total pages after timeout: ${allPages.length}`);
-                    allPages.forEach((p, i) => console.log(`Page ${i}: ${p.url()}`));
-                    await browser.close();
-                    return false;
-                }
+                console.log(`New tab opened: ${gamePage.url()}`);
+                await gamePage.waitForLoadState('domcontentloaded', { timeout: 60000 });
 
                 // Spoof navigator.webdriver in the new tab
                 await gamePage.addInitScript(() => {
