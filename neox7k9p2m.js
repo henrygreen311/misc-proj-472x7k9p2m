@@ -34,19 +34,24 @@ const runScript = async () => {
     const browser = await firefox.launch({
         headless: true,
         firefoxUserPrefs: {
-            'dom.webdriver.enabled': false,           // Prevents WebDriver flag detection
-            'privacy.resistFingerprinting': false,    // Avoids Tor-like suspicious fingerprint
-            'general.appversion.override': '5.0 (X11)',  // Spoofed app version consistent with Linux
-            'general.platform.override': 'Linux x86_64', // Matches the Linux user agent
-            'intl.accept_languages': 'en-US,en',      // Realistic language settings
-            'media.peerconnection.enabled': false,    // Disables WebRTC to prevent IP leaks
-            'webgl.disabled': true,                   // Prevents WebGL fingerprinting
-            'browser.sessionstore.resume_from_crash': false  // Avoids session restore hints
+            'dom.webdriver.enabled': false,
+            'privacy.resistFingerprinting': false,
+            'general.appversion.override': '5.0 (X11)',
+            'general.platform.override': 'Linux x86_64',
+            'intl.accept_languages': 'en-US,en',
+            'media.peerconnection.enabled': false,
+            'webgl.disabled': true,
+            'browser.sessionstore.resume_from_crash': false,
+            // Allow pop-ups
+            'dom.disable_open_during_load': false,
+            'dom.popup_maximum': 20
         }
     });
 
     const context = await browser.newContext({
-        userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0'
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0',
+        viewport: { width: 1280, height: 720 }, // Mimic a real browser window
+        acceptDownloads: true // Allow pop-ups/downloads
     });
     const page = await context.newPage();
 
@@ -56,15 +61,6 @@ const runScript = async () => {
             get: () => false,
         });
     });
-
-    // Optional: Block bot-detection scripts (uncomment if needed)
-    // await page.route('**/*', route => {
-    //     const url = route.request().url();
-    //     if (url.includes('detect-bot') || url.includes('fingerprint')) {
-    //         return route.abort();
-    //     }
-    //     route.continue();
-    // });
 
     console.log('Loading session data...');
     try {
@@ -78,39 +74,83 @@ const runScript = async () => {
     console.log('Opening NeoBux Dashboard...');
     try {
         await page.goto('https://www.neobux.com/c/', { waitUntil: 'domcontentloaded', timeout: 120000 });
-        await page.waitForTimeout(300); // Small delay to mimic human behavior
+        await page.waitForTimeout(300);
 
         if (page.url().includes('/c/')) {
             console.log('Login successful. Navigating to the game page...');
             await page.goto('https://www.neobux.com/m/ag/', { waitUntil: 'domcontentloaded', timeout: 120000 });
-            await page.waitForTimeout(400); // Small delay
+            await page.waitForTimeout(400);
 
             console.log('Checking for the game start button...');
             const gameButton = await page.waitForSelector('table#pntb', { timeout: 30000, state: 'visible' });
 
             if (gameButton) {
                 console.log('Game button found! Clicking...');
-                await gameButton.click();
-                await page.waitForTimeout(500); // Delay after click
+                let gamePage;
+                let attempts = 0;
+                const maxAttempts = 3;
 
-                console.log('Waiting for the new tab to open...');
-                const [gamePage] = await Promise.all([
-                    context.waitForEvent('page', { timeout: 30000 }),
-                    page.waitForLoadState('domcontentloaded'),
-                ]);
+                while (!gamePage && attempts < maxAttempts) {
+                    try {
+                        await gameButton.click();
+                        await page.waitForTimeout(500);
 
-                // Spoof navigator.webdriver in the new tab as well
+                        console.log(`Attempt ${attempts + 1}/${maxAttempts}: Waiting for the new tab to open...`);
+                        [gamePage] = await Promise.all([
+                            context.waitForEvent('page', { timeout: 60000 }), // Increased to 60s
+                            page.waitForLoadState('domcontentloaded', { timeout: 60000 })
+                        ]);
+                        console.log(`New tab detected at URL: ${gamePage.url()}`);
+                    } catch (error) {
+                        attempts++;
+                        console.log(`Tab detection failed: ${error.message}`);
+                        if (attempts < maxAttempts) {
+                            console.log('Retrying in 5 seconds...');
+                            await page.waitForTimeout(5000);
+                            // Re-check button in case page state changed
+                            const refreshedButton = await page.waitForSelector('table#pntb', { timeout: 30000, state: 'visible' });
+                            console.log('Re-clicking game button...');
+                            await refreshedButton.click();
+                        } else {
+                            console.log('Max attempts reached. Checking for redirect or existing pages...');
+                            const pages = context.pages();
+                            console.log(`Found ${pages.length} pages: ${pages.map(p => p.url()).join(', ')}`);
+                            if (pages.length > 1) {
+                                gamePage = pages[1];
+                                console.log(`Using existing page at URL: ${gamePage.url()}`);
+                            } else {
+                                await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+                                if (!page.url().includes('/m/ag/')) {
+                                    console.log(`Redirect detected to ${page.url()}. Using current page...`);
+                                    gamePage = page;
+                                } else {
+                                    console.error('No new tab or redirect detected. Aborting...');
+                                    await browser.close();
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!gamePage) {
+                    console.error('Failed to proceed to game page. Restarting script...');
+                    await browser.close();
+                    return false;
+                }
+
+                // Spoof navigator.webdriver in the game page
                 await gamePage.addInitScript(() => {
                     Object.defineProperty(navigator, 'webdriver', {
                         get: () => false,
                     });
                 });
 
-                console.log('New tab detected. Verifying the game page...');
+                console.log('Verifying the game page...');
                 await gamePage.waitForSelector('span:text("All Games")', { timeout: 30000, state: 'visible' });
                 console.log('"All Games" button appeared! Clicking...');
                 await gamePage.click('span:text("All Games")');
-                await gamePage.waitForTimeout(300); // Delay after click
+                await gamePage.waitForTimeout(300);
 
                 console.log('Verifying the page loaded successfully...');
                 await gamePage.waitForSelector('a.contact-us-btn', { timeout: 30000, state: 'visible' });
@@ -119,12 +159,12 @@ const runScript = async () => {
                 await gamePage.waitForSelector('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")', { timeout: 30000, state: 'visible' });
                 console.log('"Knife Smash" found! Clicking...');
                 await gamePage.click('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")');
-                await gamePage.waitForTimeout(400); // Delay after click
+                await gamePage.waitForTimeout(400);
 
                 console.log('Waiting for page to load after clicking "Knife Smash"...');
                 await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
-                // Retry logic for "PLAY NOW" button with shorter timeout
+                // Retry logic for "PLAY NOW" button
                 let playNowButtonFound = false;
                 let playNowAttempts = 0;
                 const maxPlayNowAttempts = 3;
@@ -135,7 +175,7 @@ const runScript = async () => {
                         await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-now"]', { timeout: 30000, state: 'visible' });
                         console.log('"PLAY NOW" button found! Clicking...');
                         await gamePage.click('ark-div[ark-test-id="ark-play-now"]');
-                        await gamePage.waitForTimeout(500); // Delay after click
+                        await gamePage.waitForTimeout(500);
                         playNowButtonFound = true;
                     } catch (error) {
                         playNowAttempts++;
@@ -149,9 +189,9 @@ const runScript = async () => {
                             await gamePage.click('ark-gname[ark-test-id="game-card-name"]:text("Knife Smash")');
                             await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
                         } else {
-                            console.error('Max attempts reached for "PLAY NOW" button. Aborting this session...');
+                            console.error('Max attempts reached for "PLAY NOW" button. Aborting...');
                             await browser.close();
-                            return false; // Signal failure to trigger restart
+                            return false;
                         }
                     }
                 }
@@ -166,7 +206,6 @@ const runScript = async () => {
                 let sequenceCount = 0;
                 const maxSequences = 1;
 
-                // Function to play the game sequence with retry logic
                 const playGameSequence = async () => {
                     let sequenceAttempts = 0;
                     const maxSequenceAttempts = 3;
@@ -185,7 +224,7 @@ const runScript = async () => {
                             await gamePage.waitForSelector('button.ark-ad-button[data-type="play-button"]', { timeout: 30000, state: 'visible' });
                             console.log('Ad button found! Clicking...');
                             await gamePage.click('button.ark-ad-button[data-type="play-button"]');
-                            await gamePage.waitForTimeout(5000); // Wait for stability
+                            await gamePage.waitForTimeout(5000);
 
                             console.log('Waiting for game to fully load (ark-play-widget-container)...');
                             await gamePage.waitForSelector('ark-div.ark-play-widget-container', { timeout: 120000, state: 'visible' });
@@ -250,9 +289,9 @@ const runScript = async () => {
                                 adButtonTimeoutCount++;
                                 console.log(`Ad button timeout occurred (${adButtonTimeoutCount}/${maxAdButtonTimeouts})`);
                                 if (adButtonTimeoutCount >= maxAdButtonTimeouts) {
-                                    console.log('Max ad button timeouts reached. Restarting script from beginning...');
+                                    console.log('Max ad button timeouts reached. Restarting script...');
                                     await browser.close();
-                                    return false; // Signal to restart
+                                    return false;
                                 }
                             }
                             if (sequenceAttempts < maxSequenceAttempts) {
@@ -266,26 +305,24 @@ const runScript = async () => {
                                 await gamePage.waitForSelector('ark-div[ark-test-id="ark-play-now"]', { timeout: 30000, state: 'visible' });
                                 await gamePage.click('ark-div[ark-test-id="ark-play-now"]');
                             } else {
-                                console.error('Max sequence attempts reached. Aborting this session...');
+                                console.error('Max sequence attempts reached. Aborting...');
                                 await browser.close();
-                                return false; // Signal failure to trigger restart
+                                return false;
                             }
                         }
                     }
                     if (sequenceCount >= maxSequences) {
                         console.log(`Completed all ${maxSequences} sequences!`);
-                        return true; // Signal successful completion
+                        return true;
                     }
-                    return false; // Signal failure if max attempts reached without success
+                    return false;
                 };
 
-                // Main game loop
                 const playGameLoop = async () => {
                     await playGameSequence();
                     console.log('Game loop finished');
                 };
 
-                // Inactivity popup handler
                 const handleInactivityPopup = async () => {
                     while (sequenceCount < maxSequences) {
                         try {
@@ -300,7 +337,6 @@ const runScript = async () => {
                     }
                 };
 
-                // End game handler
                 const handleEndGame = async () => {
                     while (sequenceCount < maxSequences) {
                         try {
@@ -334,7 +370,6 @@ const runScript = async () => {
                     }
                 };
 
-                // Run the game loop and handlers
                 const success = await Promise.all([
                     playGameLoop(),
                     handleInactivityPopup(),
@@ -355,14 +390,14 @@ const runScript = async () => {
     } catch (error) {
         console.error('Navigation error:', error.message);
         await browser.close();
-        return false; // Signal failure to trigger restart
+        return false;
     }
 };
 
 // Retry loop to restart the script if needed
 (async () => {
     let restartCount = 0;
-    const maxRestarts = 10; // Prevent infinite restarts
+    const maxRestarts = 10;
 
     while (restartCount < maxRestarts) {
         console.log(`Script attempt ${restartCount + 1}/${maxRestarts}`);
@@ -374,7 +409,7 @@ const runScript = async () => {
         restartCount++;
         if (restartCount < maxRestarts) {
             console.log('Restarting script due to ad button timeout or "PLAY NOW" failures...');
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Brief delay before restart
+            await new Promise(resolve => setTimeout(resolve, 5000));
         } else {
             console.log('Max restart attempts reached. Exiting...');
             process.exit(1);
