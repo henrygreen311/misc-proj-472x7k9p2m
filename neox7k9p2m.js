@@ -34,11 +34,13 @@ const runScript = async () => {
     const browser = await firefox.launch({
         headless: true,
         firefoxUserPrefs: {
-            'privacy.resistFingerprinting': false,    // Avoids Tor-like suspicious fingerprint
-            'general.platform.override': 'Linux x86_64', // Matches the Linux user agent
-            'intl.accept_languages': 'en-US,en',      // Realistic language settings
-            'media.peerconnection.enabled': false,    // Disables WebRTC to prevent IP leaks
-            'webgl.disabled': true                    // Prevents WebGL fingerprinting
+            'privacy.resistFingerprinting': false,
+            'general.platform.override': 'Linux x86_64',
+            'intl.accept_languages': 'en-US,en',
+            'media.peerconnection.enabled': false,
+            'webgl.disabled': true,
+            'dom.popup_maximum': 20,           // Allow pop-ups
+            'privacy.popups.disable_from_plugins': 0 // Disable pop-up blocking
         }
     });
 
@@ -79,15 +81,28 @@ const runScript = async () => {
             if (gameButton) {
                 console.log('Game button found! Clicking...');
                 await gameButton.click();
-                await page.waitForTimeout(500); // Delay after click
+                await page.waitForTimeout(1000); // Give it time to react
+
+                // Debug: Check number of pages before waiting
+                const pagesBefore = await context.pages();
+                console.log(`Pages before new tab wait: ${pagesBefore.length}`);
 
                 console.log('Waiting for the new tab to open...');
-                const [gamePage] = await Promise.all([
-                    context.waitForEvent('page', { timeout: 30000 }),
-                    page.waitForLoadState('domcontentloaded'),
-                ]);
+                let gamePage;
+                try {
+                    gamePage = await context.waitForEvent('page', { timeout: 60000 }); // Increased timeout
+                    await gamePage.waitForLoadState('domcontentloaded');
+                    console.log(`New tab URL: ${gamePage.url()}`);
+                } catch (error) {
+                    console.error('Failed to detect new page:', error.message);
+                    const allPages = await context.pages();
+                    console.log(`Total pages after timeout: ${allPages.length}`);
+                    allPages.forEach((p, i) => console.log(`Page ${i}: ${p.url()}`));
+                    await browser.close();
+                    return false;
+                }
 
-                // Spoof navigator.webdriver in the new tab as well
+                // Spoof navigator.webdriver in the new tab
                 await gamePage.addInitScript(() => {
                     Object.defineProperty(navigator, 'webdriver', {
                         get: () => false,
@@ -112,7 +127,7 @@ const runScript = async () => {
                 console.log('Waiting for page to load after clicking "Knife Smash"...');
                 await gamePage.waitForLoadState('domcontentloaded', { timeout: 30000 });
 
-                // Retry logic for "PLAY NOW" button with shorter timeout
+                // Retry logic for "PLAY NOW" button
                 let playNowButtonFound = false;
                 let playNowAttempts = 0;
                 const maxPlayNowAttempts = 3;
@@ -139,7 +154,7 @@ const runScript = async () => {
                         } else {
                             console.error('Max attempts reached for "PLAY NOW" button. Aborting this session...');
                             await browser.close();
-                            return false; // Signal failure to trigger restart
+                            return false;
                         }
                     }
                 }
@@ -240,7 +255,7 @@ const runScript = async () => {
                                 if (adButtonTimeoutCount >= maxAdButtonTimeouts) {
                                     console.log('Max ad button timeouts reached. Restarting script from beginning...');
                                     await browser.close();
-                                    return false; // Signal to restart
+                                    return false;
                                 }
                             }
                             if (sequenceAttempts < maxSequenceAttempts) {
@@ -256,15 +271,15 @@ const runScript = async () => {
                             } else {
                                 console.error('Max sequence attempts reached. Aborting this session...');
                                 await browser.close();
-                                return false; // Signal failure to trigger restart
+                                return false;
                             }
                         }
                     }
                     if (sequenceCount >= maxSequences) {
                         console.log(`Completed all ${maxSequences} sequences!`);
-                        return true; // Signal successful completion
+                        return true;
                     }
-                    return false; // Signal failure if max attempts reached without success
+                    return false;
                 };
 
                 // Main game loop
@@ -343,14 +358,14 @@ const runScript = async () => {
     } catch (error) {
         console.error('Navigation error:', error.message);
         await browser.close();
-        return false; // Signal failure to trigger restart
+        return false;
     }
 };
 
 // Retry loop to restart the script if needed
 (async () => {
     let restartCount = 0;
-    const maxRestarts = 10; // Prevent infinite restarts
+    const maxRestarts = 10;
 
     while (restartCount < maxRestarts) {
         console.log(`Script attempt ${restartCount + 1}/${maxRestarts}`);
@@ -362,7 +377,7 @@ const runScript = async () => {
         restartCount++;
         if (restartCount < maxRestarts) {
             console.log('Restarting script due to ad button timeout or "PLAY NOW" failures...');
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Brief delay before restart
+            await new Promise(resolve => setTimeout(resolve, 5000));
         } else {
             console.log('Max restart attempts reached. Exiting...');
             process.exit(1);
