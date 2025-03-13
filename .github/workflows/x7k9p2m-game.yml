@@ -21,16 +21,10 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.18.3'
+          node-version: '18'
 
-      - name: Install Playwright and Firefox
-        run: |
-          npm install playwright
-          npx playwright install firefox --with-deps
-
-      - name: Start Xvfb
-        run: |
-          sudo Xvfb :99 -screen 0 1280x720x24 &
+      - name: Install Playwright
+        run: npm install playwright && npx playwright install firefox
 
       - name: Run automation script 100 times
         run: |
@@ -39,7 +33,4 @@ jobs:
             node neox7k9p2m.js  # Replace with your actual script filename
           done
         env:
-          DISPLAY: ':99'  # Use the virtual display for headless Firefox
-
-      - name: Verify Node.js version (optional)
-        run: node -v
+          DISPLAY: ':99.0'  # Enable Xvfb to run headless
