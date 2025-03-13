@@ -94,7 +94,7 @@ const runScript = async () => {
                 await gameButton.click();
                 const gamePage = await newPagePromise;
 
-                console.log(`New tab opened: ${gamePage.url()}`);
+                //console.log(`New tab opened: ${gamePage.url()}`);
                 await gamePage.waitForLoadState('domcontentloaded', { timeout: 60000 });
 
                 // Spoof navigator.webdriver in the new tab as well
