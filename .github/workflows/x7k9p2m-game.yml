@@ -14,25 +14,22 @@ concurrency:
 jobs:
   automate:
     runs-on: ubuntu-latest
-    timeout-minutes: 330  # Auto-terminate after 5 hours 30 minutes
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    steps:  
+      - name: Checkout repository  
+        uses: actions/checkout@v4  
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
+      - name: Set up Node.js  
+        uses: actions/setup-node@v4  
+        with:  
+          node-version: '18'  
 
-      - name: Install Playwright
-        run: npm install playwright && npx playwright install firefox
+      - name: Install Playwright  
+        run: npm install playwright && npx playwright install firefox  
 
-      - name: Run automation script 100 times
+      - name: Run automation script with timeout  
         run: |
-          for i in {1..100}; do
-            echo "Running iteration $i"
-            node neox7k9p2m.js  # Replace with your actual script filename
-          done
-        env:
+          # Set a timeout of 330 minutes (19800 seconds) and run the script
+          timeout 19800s bash -c 'for i in {1..100}; do echo "Running iteration $i"; node neox7k9p2m.js; done' || exit 0
+        env:  
           DISPLAY: ':99.0'  # Enable Xvfb to run headless
