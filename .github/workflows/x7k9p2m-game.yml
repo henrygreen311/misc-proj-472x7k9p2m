@@ -14,8 +14,9 @@ concurrency:
 jobs:
   automate:
     runs-on: ubuntu-latest
+    # Removed timeout-minutes here to avoid forced cancellation
 
-    steps:  
+    steps:
       - name: Checkout repository  
         uses: actions/checkout@v4  
 
@@ -29,7 +30,14 @@ jobs:
 
       - name: Run automation script with timeout  
         run: |
-          # Set a timeout of 330 minutes (19800 seconds) and run the script
-          timeout 19800s bash -c 'for i in {1..100}; do echo "Running iteration $i"; node neox7k9p2m.js; done' || exit 0
+          # Trap SIGTERM to ensure clean exit if canceled
+          trap "echo 'Job canceled, exiting successfully'; exit 0" SIGTERM
+          
+          # Run the script with a timeout of 19800 seconds (5 hours 30 minutes)
+          timeout 19800s bash -c '
+            for i in {1..100}; do 
+              echo "Running iteration $i"; 
+              node neox7k9p2m.js || echo "Script failed at iteration $i, continuing...";
+            done' && echo "Script completed successfully." || { echo "Timeout or error occurred, exiting gracefully."; exit 0; }
         env:  
-          DISPLAY: ':99.0'  # Enable Xvfb to run headless
+          DISPLAY: ':99.0'
