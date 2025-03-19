@@ -1,9 +1,7 @@
-name: Run NeoBux Script
+name: Run NodePay Script
 
-on:
+on:  
   workflow_dispatch:
-  schedule:
-    - cron: "0 */5 * * *"  # Runs every 5 hours
 
 jobs:
   automate:
@@ -19,15 +17,14 @@ jobs:
           node-version: '18'
 
       - name: Install Playwright
-        run: npm install playwright && npx playwright install firefox
+        run: npm install playwright && npx playwright install chromium
 
-      - name: Display current IP address
+      - name: Extract Chromium Profile
         run: |
-          echo "Current IP address of this runner:"
-          curl -s icanhazip.com
-          echo ""  # Adds a newline for readability in logs
+          mkdir -p /home/runner/Nodepay/nodepay_1
+          tar -xzvf nodepay-profile.tar.gz -C /home/runner/Nodepay/nodepay_1
 
-      - name: Run automation script
-        run: node x7k9p2m-survey.js  # Replace 'script.js' with your actual script filename
+      - name: Run NodePay script
+        run: node nodepay.js
         env:
           DISPLAY: ':99.0'  # Enable Xvfb to run headless
