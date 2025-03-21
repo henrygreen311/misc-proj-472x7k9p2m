@@ -1,28 +1,33 @@
 name: Run NeoBux Script
 
-on: workflow_dispatch: schedule: - cron: "0 */5 * * *"  # Runs every 5 hours
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */5 * * *"  # Runs every 5 hours
 
-jobs: automate: runs-on: ubuntu-latest
+jobs:
+  automate:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  - name: Set up Node.js
-    uses: actions/setup-node@v4
-    with:
-      node-version: '18'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-  - name: Install Playwright
-    run: npm install playwright && npx playwright install firefox
+      - name: Install Playwright
+        run: npm install playwright && npx playwright install firefox
 
-  - name: Display current IP address
-    run: |
-      echo "Current IP address of this runner:"
-      curl -s icanhazip.com
-      echo ""  # Adds a newline for readability in logs
+      - name: Display current IP address
+        run: |
+          echo "Current IP address of this runner:"
+          curl -s icanhazip.com
+          echo ""  # Adds a newline for readability in logs
 
-  - name: Run automation script
-    run: node x7k9p2m-survey.js  # Replace 'script.js' with your actual script filename
-    env:
-      DISPLAY: ':99.0'  # Enable Xvfb to run headless
+      - name: Run automation script
+        run: node x7k9p2m-survey.js  # Replace with your actual script filename
+        env:
+          DISPLAY: ':99.0'  # Enable Xvfb to run headless
