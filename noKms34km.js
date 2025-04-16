@@ -46,7 +46,7 @@ const fs = require('fs');
 
         // Look for the claim button using XPath and click it
         try {
-            const claimButton = await page.locator('xpath=/html/body/div[1]/div[2]/div/main/div/div[2]/div[5]/div[1]/div/div[2]/div[1]/div[2]/div/div[2]');
+            const claimButton = await page.locator('xpath=/html/body/div[1]/div[3]/div/main/div/div[2]/div[5]/div[1]/div/div[2]/div[1]/div[2]/div/div[2]');
             
             if (await claimButton.isVisible()) {
                 console.log("Claim button found using XPath. Clicking...");
