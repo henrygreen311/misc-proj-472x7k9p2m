@@ -111,7 +111,7 @@ const fs = require('fs');
     } catch (error) {    
         console.error('Failed to open NeoBux Dashboard:', error.message);    
     } finally {    
-        console.log('Browser will remain open for manual inspection.');    
-        // Don't close the browser automatically    
+        console.log('All tasks completed. Closing browser...');    
+        await browser.close();    
     }    
 })();
