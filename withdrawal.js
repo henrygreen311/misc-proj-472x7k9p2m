@@ -28,7 +28,7 @@ const fs = require('fs');
     });    
     
     const browser = await firefox.launch({    
-        headless: false,    
+        headless: true,    
         firefoxUserPrefs: {    
             'dom.webdriver.enabled': false,    
             'privacy.resistFingerprinting': false,    
