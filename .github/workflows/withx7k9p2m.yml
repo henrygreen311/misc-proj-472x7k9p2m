@@ -1,4 +1,4 @@
-name: Run NeoBux Script
+name: Run withdrawal
 
 on:
   workflow_dispatch:  # This triggers the workflow manually
