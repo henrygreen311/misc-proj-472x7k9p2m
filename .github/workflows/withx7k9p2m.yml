@@ -1,0 +1,25 @@
+name: Run NeoBux Script
+
+on:
+  workflow_dispatch:  # This triggers the workflow manually
+
+jobs:
+  automate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Playwright
+        run: npm install playwright && npx playwright install firefox
+
+      - name: Run automation script
+        run: node x7k9p2m-survey.js  # Replace with your actual script filename
+        env:
+          DISPLAY: ':99.0'  # Enable Xvfb to run headless
