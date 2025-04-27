@@ -29,7 +29,7 @@ const { spawn } = require('child_process');
     });
 
     const browser = await firefox.launch({
-        headless: false,
+        headless: true,
         firefoxUserPrefs: {
             'dom.webdriver.enabled': false,
             'privacy.resistFingerprinting': false,
