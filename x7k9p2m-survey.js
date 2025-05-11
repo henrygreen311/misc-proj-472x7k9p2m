@@ -3,7 +3,7 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 
 (async () => {
-    const sessionFile = 'x7k9p23.json';
+    const sessionFile = 'x7k9p2m.json';
 
     if (!fs.existsSync(sessionFile)) {
         console.error('Session file not found!');
@@ -74,8 +74,8 @@ const { spawn } = require('child_process');
             await page.waitForTimeout(3000);
 
             await page.goto('https://www.neobux.com/m/l/', { waitUntil: 'domcontentloaded', timeout: 60000 });
-            await page.fill('input[placeholder="Username"]', 'bugman15');
-            await page.fill('input[placeholder="Password"]', 'Henrygreen311');
+            await page.fill('input[placeholder="Username"]', 'chukwuebuka317');
+            await page.fill('input[placeholder="Password"]', 'Henry311@');
 
             console.log('Clicking login button...');
             const loginButton = await page.$('a#botao_login');
@@ -97,7 +97,7 @@ const { spawn } = require('child_process');
             console.log('Manual login successful. Saving session cookies...');
             try {
             const newCookies = await context.cookies();
-const updatedSessionFile = 'x7k9p23.json';
+const updatedSessionFile = 'x7k9p2m.json';
 fs.writeFileSync(updatedSessionFile, JSON.stringify(newCookies, null, 2), 'utf8');
 console.log(`Session cookies saved to ${updatedSessionFile}.`);
             } catch (err) {
