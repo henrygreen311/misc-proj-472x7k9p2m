@@ -3,9 +3,7 @@ name: Run NeoBux-game Script
 on:
   workflow_dispatch:  # Manually trigger from GitHub Actions
   schedule:
-    - cron: "0 0 * * *"    # 00:00 UTC
-    - cron: "5 8 * * *"    # 08:05 UTC (8h 5m after 00:00)
-    - cron: "10 16 * * *"  # 16:10 UTC (8h 5m after 08:05)
+    - cron: "0 0 32 1 *"  # Day 32 doesn't exist, so it will never run
 
 concurrency:
   group: neobux-game
